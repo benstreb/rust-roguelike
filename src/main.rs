@@ -65,16 +65,19 @@ fn main() -> BResult<()> {
         .build()?;
     system::draw_actors(&conn, &mut console)?;
 
-    main_loop(console, State { conn })
+    main_loop(console, State { player, conn })
 }
 
 struct State {
+    player: entity::Entity,
     conn: rusqlite::Connection,
 }
 
 impl State {
     fn tick_inner(&mut self, mut console: &mut BTerm) -> BResult<()> {
         // Game loop.
+        system::keydown_handler(&self.conn, console.key, self.player)?;
+
         if component::player::level(&self.conn)? == game_object::WIN_LEVEL {
             console.cls();
             console.print(1, 1, "You Win");
@@ -82,7 +85,7 @@ impl State {
             self.conn.execute_batch("BEGIN TRANSACTION")?;
             // let turn_start = std::time::Instant::now();
             // system::apply_ai(&sql);
-            // system::move_actors(&sql);
+            system::move_actors(&self.conn)?;
             component::player::pass_time(&self.conn, 1)?;
             // system::apply_regen(&sql);
             // for _ in 0..25 {
