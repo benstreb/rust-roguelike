@@ -4,16 +4,12 @@ mod game_object;
 mod map_gen;
 mod system;
 
-use anyhow::Ok;
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
 use map_gen::Tile;
+use std::io::Write;
 
 fn main() -> BResult<()> {
-    // let mut turn_log_file = std::fs::File::create("./turn_log.csv")?;
-
-    // let tee = boost::iostreams::tee(std::io::stdout(), &mut turn_log_file);
-    // let mut turn_log = boost::iostreams::stream(tee);
-    // turn_log.write_all(b"turn,time (ms),actors\n")?;
+    let turn_log_file = std::fs::File::create("./turn_log.csv")?;
 
     let conn = rusqlite::Connection::open_in_memory()?;
     // let conn = rusqlite::Connection::open("game.db")?;
@@ -65,12 +61,22 @@ fn main() -> BResult<()> {
         .build()?;
     system::draw_actors(&conn, &mut console)?;
 
-    main_loop(console, State { player, conn })
+    let turn_profiler = TurnProfiler::new(turn_log_file)?;
+
+    main_loop(
+        console,
+        State {
+            player,
+            conn,
+            turn_profiler,
+        },
+    )
 }
 
 struct State {
     player: entity::Entity,
     conn: rusqlite::Connection,
+    turn_profiler: TurnProfiler,
 }
 
 impl State {
@@ -83,7 +89,7 @@ impl State {
             console.print(1, 1, "You Win");
         } else if component::player::outstanding_turns(&self.conn)? > 0 {
             self.conn.execute_batch("BEGIN TRANSACTION")?;
-            // let turn_start = std::time::Instant::now();
+            let turn_start = self.turn_profiler.start();
             // system::apply_ai(&sql);
             system::move_actors(&self.conn)?;
             component::player::pass_time(&self.conn, 1)?;
@@ -96,22 +102,14 @@ impl State {
             // }
             // system::cull_dead(&sql);
             // system::cull_ephemeral(&sql);
-            let turn = component::player::turns_passed(&self.conn)?;
-            // let turn_end = std::time::Instant::now();
-            // let turn_duration = turn_end.duration_since(turn_start);
-            // let most_recent_turn_ms = turn_duration.as_millis() as i32;
             console.cls();
             system::draw_actors(&self.conn, &mut console)?;
+
+            let turn = component::player::turns_passed(&self.conn)?;
+            let actor_count = component::actor::count(&self.conn)?;
             self.conn.execute_batch("COMMIT TRANSACTION")?;
-            // turn_log.write_all(
-            //     format!(
-            //         "{},{},{}\n",
-            //         turn,
-            //         most_recent_turn_ms,
-            //         component::actor::count(&sql)
-            //     )
-            //     .as_bytes(),
-            // )?;
+
+            self.turn_profiler.end(turn, turn_start, actor_count)?;
             console.print(0, 0, turn.to_string());
         }
         BResult::Ok(())
@@ -122,4 +120,32 @@ impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         self.tick_inner(ctx).expect("Fatal error in game loop.");
     }
+}
+
+struct TurnProfiler {
+    file: std::fs::File,
+}
+
+impl TurnProfiler {
+    fn new(mut file: std::fs::File) -> std::io::Result<Self> {
+        writeln!(file, "turn,time (ms),actors")?;
+        std::io::Result::Ok(TurnProfiler { file })
+    }
+
+    fn start(&mut self) -> TurnStart {
+        TurnStart {
+            start: std::time::Instant::now(),
+        }
+    }
+
+    fn end(&mut self, turn: i64, start: TurnStart, actor_count: i64) -> std::io::Result<()> {
+        let end = std::time::Instant::now();
+        let duration = end.duration_since(start.start);
+        let ms = duration.as_millis();
+        writeln!(self.file, "{},{},{}", turn, ms, actor_count)
+    }
+}
+
+struct TurnStart {
+    start: std::time::Instant,
 }

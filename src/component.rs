@@ -131,9 +131,9 @@ pub mod actor {
     //     Ok(())
     // }
 
-    // pub fn count_actors(conn: &rusqlite::Connection) -> rusqlite::Result<i64> {
-    //     conn.query_row("SELECT COUNT(*) FROM Actor", (), |row| row.get(0))
-    // }
+    pub fn count(conn: &rusqlite::Connection) -> rusqlite::Result<i64> {
+        conn.query_row("SELECT COUNT(*) FROM Actor", (), |row| row.get(0))
+    }
 }
 
 pub mod velocity {
