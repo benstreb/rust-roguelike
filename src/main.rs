@@ -6,13 +6,39 @@ mod system;
 
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
 use map_gen::Tile;
-use std::io::Write;
+use rand::{Rng, SeedableRng};
+use std::{io::Write, sync::Mutex};
+
+fn add_pcg_randint_function(
+    db: &rusqlite::Connection,
+    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+) -> rusqlite::Result<()> {
+    use rusqlite::functions::FunctionFlags;
+    const SQLITE_RANDINT_ARGC: i32 = 2;
+    db.create_scalar_function(
+        "pcg_randint",
+        SQLITE_RANDINT_ARGC,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DIRECTONLY,
+        move |ctx| {
+            let min = ctx.get::<i32>(0)?;
+            let max = ctx.get::<i32>(1)?;
+            let spread = (max - min).abs();
+            let start = min.min(max);
+            let num = rng.lock().unwrap().gen_range(start..=start + spread);
+            Ok(num)
+        },
+    )
+}
 
 fn main() -> BResult<()> {
     let turn_log_file = std::fs::File::create("./turn_log.csv")?;
 
+    let rng = Box::leak(Box::new(Mutex::new(rand_pcg::Pcg64Mcg::from_entropy())));
+
     let conn = rusqlite::Connection::open_in_memory()?;
     // let conn = rusqlite::Connection::open("game.db")?;
+
+    add_pcg_randint_function(&conn, rng)?;
 
     conn.execute_batch(
         "
