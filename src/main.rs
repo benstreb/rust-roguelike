@@ -52,7 +52,7 @@ fn main() -> BResult<()> {
 
     conn.execute("BEGIN TRANSACTION", rusqlite::params![])?;
     let player = game_object::init_player(&conn)?;
-    let initial_dungeon = map_gen::EmptyGenerator {}.generate(
+    let initial_dungeon = map_gen::DefaultGenerator::new().generate(
         &mut rng.lock().unwrap(),
         game_object::CONSOLE_WIDTH,
         game_object::CONSOLE_HEIGHT - 1,
