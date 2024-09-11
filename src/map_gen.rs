@@ -77,24 +77,6 @@ pub struct Dungeon {
 }
 
 impl Dungeon {
-    pub fn generate_empty(width: i64, height: i64) -> Dungeon {
-        let mut d = Dungeon {
-            width: width - 1,
-            tiles: vec![Tile::Unused; (width * height) as usize],
-        };
-        for i in 0..width - 1 {
-            for j in 0..height - 1 {
-                if i == 0 || i == width - 2 || j == 0 || j == height - 2 {
-                    d[(i, j)] = Tile::Wall;
-                } else {
-                    d[(i, j)] = Tile::Floor;
-                }
-            }
-        }
-        d[(1, 1)] = Tile::UpStairs;
-        d
-    }
-
     pub fn iter(&self) -> impl Iterator<Item = (Tile, i64, i64)> + '_ {
         let width = self.width;
         self.tiles.iter().enumerate().map(move |(i, &t)| {
@@ -116,5 +98,31 @@ impl std::ops::Index<(i64, i64)> for Dungeon {
 impl std::ops::IndexMut<(i64, i64)> for Dungeon {
     fn index_mut(&mut self, (x, y): (i64, i64)) -> &mut Self::Output {
         &mut self.tiles[(x + (y * self.width)) as usize]
+    }
+}
+
+pub trait Generator {
+    fn generate(&self, rng: &mut rand_pcg::Pcg64Mcg, width: i64, height: i64) -> Dungeon;
+}
+
+pub struct EmptyGenerator;
+
+impl Generator for EmptyGenerator {
+    fn generate(&self, _: &mut rand_pcg::Pcg64Mcg, width: i64, height: i64) -> Dungeon {
+        let mut d = Dungeon {
+            width: width - 1,
+            tiles: vec![Tile::Unused; (width * height) as usize],
+        };
+        for i in 0..width - 1 {
+            for j in 0..height - 1 {
+                if i == 0 || i == width - 2 || j == 0 || j == height - 2 {
+                    d[(i, j)] = Tile::Wall;
+                } else {
+                    d[(i, j)] = Tile::Floor;
+                }
+            }
+        }
+        d[(1, 1)] = Tile::UpStairs;
+        d
     }
 }

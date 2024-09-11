@@ -5,7 +5,7 @@ mod map_gen;
 mod system;
 
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
-use map_gen::Tile;
+use map_gen::{Generator, Tile};
 use rand::{Rng, SeedableRng};
 use std::{io::Write, sync::Mutex};
 
@@ -52,7 +52,8 @@ fn main() -> BResult<()> {
 
     conn.execute("BEGIN TRANSACTION", rusqlite::params![])?;
     let player = game_object::init_player(&conn)?;
-    let initial_dungeon = map_gen::Dungeon::generate_empty(
+    let initial_dungeon = map_gen::EmptyGenerator {}.generate(
+        &mut rng.lock().unwrap(),
         game_object::CONSOLE_WIDTH,
         game_object::CONSOLE_HEIGHT - 1,
     );
