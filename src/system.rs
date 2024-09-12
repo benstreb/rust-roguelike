@@ -1,6 +1,7 @@
-use crate::{component, entity};
+use crate::{component, entity, game_object};
 
 use bracket_lib::terminal::{BTerm, VirtualKeyCode};
+use rand::Rng;
 
 pub fn keydown_handler(
     sql: &rusqlite::Connection,
@@ -68,5 +69,25 @@ pub fn draw_actors(
         let (x, y, tile) = row?;
         console.print(x, y, tile);
     }
+    Ok(())
+}
+
+pub fn generate_particles(
+    sql: &rusqlite::Connection,
+    rng: &mut rand_pcg::Pcg64Mcg,
+    lifespan: i64,
+) -> rusqlite::Result<()> {
+    let entity = entity::create(sql)?;
+    component::actor::set(
+        sql,
+        entity,
+        "*",
+        rng.gen_range(0..80),
+        rng.gen_range(0..25),
+        game_object::Plane::Particles,
+    )?;
+    component::velocity::set(sql, entity, rng.gen_range(-1..2), rng.gen_range(-1..2))?;
+    // component::health::set(sql, entity, lifespan, lifespan, -1)?;
+    component::collision::set(sql, entity, false, false, true)?;
     Ok(())
 }

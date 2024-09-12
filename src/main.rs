@@ -96,6 +96,7 @@ fn main() -> BResult<()> {
             player,
             conn,
             turn_profiler,
+            rng,
         },
     )
 }
@@ -104,6 +105,7 @@ struct State {
     player: entity::Entity,
     conn: rusqlite::Connection,
     turn_profiler: TurnProfiler,
+    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
 }
 
 impl State {
@@ -121,9 +123,9 @@ impl State {
             system::move_actors(&self.conn)?;
             component::player::pass_time(&self.conn, 1)?;
             // system::apply_regen(&sql);
-            // for _ in 0..25 {
-            //     system::generate_particles(&sql, &rng, 25);
-            // }
+            for _ in 0..25 {
+                system::generate_particles(&self.conn, &mut self.rng.lock().unwrap(), 25)?;
+            }
             // for _ in 0..5 {
             //     system::generate_enemies(&sql, &rng, 10);
             // }
