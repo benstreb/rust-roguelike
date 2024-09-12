@@ -7,6 +7,7 @@ pub fn create_tables(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     player::create_table(conn)?;
     actor::create_table(conn)?;
     velocity::create_table(conn)?;
+    ai::create_table(conn)?;
     collision::create_table(conn)?;
     health::create_table(conn)?;
     Ok(())
@@ -101,36 +102,36 @@ pub mod actor {
         Ok(())
     }
 
-    // pub fn set_on_random_empty_ground(
-    //     conn: &rusqlite::Connection,
-    //     entity: entity::Entity,
-    //     tile: &str,
-    //     plane: game_object::Plane,
-    // ) -> rusqlite::Result<()> {
-    //     conn.execute(
-    //         "INSERT INTO Actor (entity, tile, x, y, plane)
-    //         SELECT ?, ?, x, y, ?
-    //         FROM Actor
-    //         WHERE Actor.entity IN (
-    //             SELECT Collision.entity
-    //             FROM Collision
-    //             JOIN Actor ON Actor.entity = Collision.entity
-    //             WHERE Collision.ground = 1
-    //             AND Collision.entity NOT IN (
-    //                 SELECT Collision.entity
-    //                 FROM Collision
-    //                 JOIN Actor ON Actor.entity = Collision.entity
-    //                 JOIN Actor ground_actor ON ground_actor.x = Actor.x AND ground_actor.y = Actor.y
-    //                 JOIN Collision ground_collision ON ground_collision.entity = ground_actor.entity
-    //                 WHERE Collision.solid = 1 AND ground_collision.ground = 1
-    //             )
-    //         )
-    //         ORDER BY RANDOM()
-    //         LIMIT 1",
-    //         params![entity, tile, plane],
-    //     )?;
-    //     Ok(())
-    // }
+    pub fn set_on_random_empty_ground(
+        conn: &rusqlite::Connection,
+        entity: entity::Entity,
+        tile: &str,
+        plane: game_object::Plane,
+    ) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO Actor (entity, tile, x, y, plane)
+            SELECT ?, ?, x, y, ?
+            FROM Actor
+            WHERE Actor.entity IN (
+                SELECT Collision.entity
+                FROM Collision
+                JOIN Actor ON Actor.entity = Collision.entity
+                WHERE Collision.ground = 1
+                AND Collision.entity NOT IN (
+                    SELECT Collision.entity
+                    FROM Collision
+                    JOIN Actor ON Actor.entity = Collision.entity
+                    JOIN Actor ground_actor ON ground_actor.x = Actor.x AND ground_actor.y = Actor.y
+                    JOIN Collision ground_collision ON ground_collision.entity = ground_actor.entity
+                    WHERE Collision.solid = 1 AND ground_collision.ground = 1
+                )
+            )
+            ORDER BY RANDOM()
+            LIMIT 1",
+            params![entity, tile, plane],
+        )?;
+        Ok(())
+    }
 
     pub fn count(conn: &rusqlite::Connection) -> rusqlite::Result<i64> {
         conn.query_row("SELECT COUNT(*) FROM Actor", (), |row| row.get(0))
@@ -231,6 +232,45 @@ pub mod health {
             VALUES (?, ?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET max = excluded.max, current = excluded.current, regen = excluded.regen",
             params![entity, max, current, regen],
+        )?;
+        Ok(())
+    }
+}
+
+pub mod ai {
+    use super::*;
+
+    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS Ai (
+                entity INTEGER UNIQUE NOT NULL,
+                random BOOLEAN,
+                target_player BOOLEAN,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            )",
+        )
+    }
+
+    // pub fn set_random(conn: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
+    //     conn.execute(
+    //         "INSERT INTO Ai (entity, random, target_player)
+    //         VALUES (?, TRUE, FALSE)
+    //         ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
+    //         params![entity],
+    //     )?;
+    //     Ok(())
+    // }
+
+    pub fn set_target_player(
+        conn: &rusqlite::Connection,
+        entity: entity::Entity,
+    ) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO Ai (entity, random, target_player)
+            VALUES (?, FALSE, TRUE)
+            ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
+            params![entity],
         )?;
         Ok(())
     }

@@ -126,9 +126,9 @@ impl State {
             for _ in 0..25 {
                 system::generate_particles(&self.conn, &mut self.rng.lock().unwrap(), 25)?;
             }
-            // for _ in 0..5 {
-            //     system::generate_enemies(&sql, &rng, 10);
-            // }
+            for _ in 0..5 {
+                system::generate_enemies(&self.conn, 10)?;
+            }
             system::cull_dead(&self.conn)?;
             system::cull_ephemeral(&self.conn)?;
             console.cls();
