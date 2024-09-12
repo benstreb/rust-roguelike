@@ -8,6 +8,7 @@ pub fn create_tables(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     actor::create_table(conn)?;
     velocity::create_table(conn)?;
     collision::create_table(conn)?;
+    health::create_table(conn)?;
     Ok(())
 }
 
@@ -197,6 +198,39 @@ pub mod collision {
             VALUES (?, ?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET ground = excluded.ground, solid = excluded.solid, ephemeral = excluded.ephemeral",
             params![entity, ground, solid, ephemeral],
+        )?;
+        Ok(())
+    }
+}
+
+pub mod health {
+    use super::*;
+
+    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS Health (
+                entity INTEGER UNIQUE NOT NULL,
+                max INTEGER,
+                current INTEGER,
+                regen INTEGER,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            )",
+        )
+    }
+
+    pub fn set(
+        conn: &rusqlite::Connection,
+        entity: entity::Entity,
+        max: i64,
+        current: i64,
+        regen: i64,
+    ) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO Health (entity, max, current, regen)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (entity) DO UPDATE SET max = excluded.max, current = excluded.current, regen = excluded.regen",
+            params![entity, max, current, regen],
         )?;
         Ok(())
     }

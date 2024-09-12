@@ -72,6 +72,46 @@ pub fn draw_actors(
     Ok(())
 }
 
+pub fn apply_regen(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
+    sql.execute_batch("UPDATE Health SET current = current + regen")?;
+    Ok(())
+}
+
+pub fn cull_dead(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
+    sql.execute_batch(
+        "DELETE FROM Entity
+        WHERE id IN (
+            SELECT id
+            FROM Entity
+            JOIN Health ON Entity.id = Health.entity
+            WHERE Health.current <= 0
+        )",
+    )?;
+    Ok(())
+}
+
+pub fn cull_ephemeral(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
+    sql.execute_batch(
+        "DELETE FROM Entity
+        WHERE id IN (
+            SELECT Collision.entity
+            FROM Collision
+            JOIN Actor ON Actor.entity = Collision.entity
+            JOIN Actor solid_actor ON solid_actor.x = Actor.x AND solid_actor.y = Actor.y
+            JOIN Collision solid_collision ON solid_collision.entity = solid_actor.entity
+            WHERE Collision.ephemeral AND (solid_collision.solid OR Collision.entity NOT IN (
+                SELECT Collision.entity
+                FROM Collision
+                JOIN Actor ON Actor.entity = Collision.entity
+                JOIN Actor ground_actor ON ground_actor.x = Actor.x AND ground_actor.y = Actor.y
+                JOIN Collision ground_collision ON ground_collision.entity = ground_actor.entity
+                WHERE Collision.ephemeral AND ground_collision.ground
+            ))
+        )",
+    )?;
+    Ok(())
+}
+
 pub fn generate_particles(
     sql: &rusqlite::Connection,
     rng: &mut rand_pcg::Pcg64Mcg,
@@ -87,7 +127,7 @@ pub fn generate_particles(
         game_object::Plane::Particles,
     )?;
     component::velocity::set(sql, entity, rng.gen_range(-1..2), rng.gen_range(-1..2))?;
-    // component::health::set(sql, entity, lifespan, lifespan, -1)?;
+    component::health::set(sql, entity, lifespan, lifespan, -1)?;
     component::collision::set(sql, entity, false, false, true)?;
     Ok(())
 }

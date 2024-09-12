@@ -122,15 +122,15 @@ impl State {
             // system::apply_ai(&sql);
             system::move_actors(&self.conn)?;
             component::player::pass_time(&self.conn, 1)?;
-            // system::apply_regen(&sql);
+            system::apply_regen(&self.conn)?;
             for _ in 0..25 {
                 system::generate_particles(&self.conn, &mut self.rng.lock().unwrap(), 25)?;
             }
             // for _ in 0..5 {
             //     system::generate_enemies(&sql, &rng, 10);
             // }
-            // system::cull_dead(&sql);
-            // system::cull_ephemeral(&sql);
+            system::cull_dead(&self.conn)?;
+            system::cull_ephemeral(&self.conn)?;
             console.cls();
             system::draw_actors(&self.conn, &mut console)?;
 
