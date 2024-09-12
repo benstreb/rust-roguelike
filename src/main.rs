@@ -73,7 +73,7 @@ fn main() -> BResult<()> {
             game_object::init_floor(&conn, x, y)?;
             let down_stairs = entity::create(&conn)?;
             component::actor::set(&conn, down_stairs, ">", x, y, game_object::Plane::Objects)?;
-            // component::transition::set(&sql, down_stairs, game_object::WIN_LEVEL);
+            component::transition::set(&conn, down_stairs, game_object::WIN_LEVEL)?;
         } else if tile == Tile::UpStairs {
             game_object::init_floor(&conn, x, y)?;
             // Player spawns where the up staircase would be

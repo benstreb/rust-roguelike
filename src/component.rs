@@ -10,6 +10,7 @@ pub fn create_tables(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     ai::create_table(conn)?;
     collision::create_table(conn)?;
     health::create_table(conn)?;
+    transition::create_table(conn)?;
     Ok(())
 }
 
@@ -271,6 +272,35 @@ pub mod ai {
             VALUES (?, FALSE, TRUE)
             ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
             params![entity],
+        )?;
+        Ok(())
+    }
+}
+
+pub mod transition {
+    use super::*;
+
+    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS Transition (
+                entity INTEGER UNIQUE NOT NULL,
+                level TEXT,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            )",
+        )
+    }
+
+    pub fn set(
+        conn: &rusqlite::Connection,
+        entity: entity::Entity,
+        level: &str,
+    ) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO Transition (entity, level)
+            VALUES (?, ?)
+            ON CONFLICT (entity) DO UPDATE SET level = excluded.level",
+            params![entity, level],
         )?;
         Ok(())
     }

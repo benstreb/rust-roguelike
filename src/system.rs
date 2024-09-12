@@ -30,7 +30,9 @@ pub fn keydown_handler(
             component::velocity::set(sql, player, 0, 1)?;
             component::player::pass_time(sql, -1)?;
         }
-        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {} //sys::follow_transition(sql)?,
+        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
+            follow_transition(sql)?;
+        }
         _ => {}
     };
     Ok(())
@@ -55,6 +57,21 @@ pub fn move_actors(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
             WHERE Collision.solid AND solid_collision.solid
         )
         ")
+}
+
+pub fn follow_transition(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
+    sql.execute_batch(
+        "
+        UPDATE Player
+        SET level = Transition.level
+        FROM Transition
+        JOIN Actor transition_actor ON transition_actor.entity = Transition.entity
+        JOIN Actor player_actor
+            ON player_actor.x = transition_actor.x
+            AND player_actor.y = transition_actor.y
+        WHERE player_actor.entity = Player.entity
+        ",
+    )
 }
 
 pub fn draw_actors(
