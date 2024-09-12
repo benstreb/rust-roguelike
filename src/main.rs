@@ -119,7 +119,7 @@ impl State {
         } else if component::player::outstanding_turns(&self.conn)? > 0 {
             self.conn.execute_batch("BEGIN TRANSACTION")?;
             let turn_start = self.turn_profiler.start();
-            // system::apply_ai(&sql);
+            system::apply_ai(&self.conn)?;
             system::move_actors(&self.conn)?;
             component::player::pass_time(&self.conn, 1)?;
             system::apply_regen(&self.conn)?;

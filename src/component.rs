@@ -252,15 +252,15 @@ pub mod ai {
         )
     }
 
-    // pub fn set_random(conn: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
-    //     conn.execute(
-    //         "INSERT INTO Ai (entity, random, target_player)
-    //         VALUES (?, TRUE, FALSE)
-    //         ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
-    //         params![entity],
-    //     )?;
-    //     Ok(())
-    // }
+    pub fn set_random(conn: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO Ai (entity, random, target_player)
+            VALUES (?, TRUE, FALSE)
+            ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
+            params![entity],
+        )?;
+        Ok(())
+    }
 
     pub fn set_target_player(
         conn: &rusqlite::Connection,
