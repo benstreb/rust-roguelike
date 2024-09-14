@@ -9,6 +9,7 @@ pub fn create_tables(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     velocity::create_table(conn)?;
     ai::create_table(conn)?;
     collision::create_table(conn)?;
+    collision::create_passable_tiles_view(conn)?;
     health::create_table(conn)?;
     transition::create_table(conn)?;
     Ok(())
@@ -113,20 +114,7 @@ pub mod actor {
             "INSERT INTO Actor (entity, tile, x, y, plane)
             SELECT ?, ?, x, y, ?
             FROM Actor
-            WHERE Actor.entity IN (
-                SELECT Collision.entity
-                FROM Collision
-                JOIN Actor ON Actor.entity = Collision.entity
-                WHERE Collision.ground = 1
-                AND Collision.entity NOT IN (
-                    SELECT Collision.entity
-                    FROM Collision
-                    JOIN Actor ON Actor.entity = Collision.entity
-                    JOIN Actor ground_actor ON ground_actor.x = Actor.x AND ground_actor.y = Actor.y
-                    JOIN Collision ground_collision ON ground_collision.entity = ground_actor.entity
-                    WHERE Collision.solid = 1 AND ground_collision.ground = 1
-                )
-            )
+            WHERE Actor.entity IN (SELECT entity FROM PassableTiles)
             ORDER BY RANDOM()
             LIMIT 1",
             params![entity, tile, plane],
@@ -185,6 +173,26 @@ pub mod collision {
                 ephemeral BOOLEAN,
                 FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
             )",
+        )
+    }
+
+    pub fn create_passable_tiles_view(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
+        conn.execute_batch(
+            "
+            CREATE VIEW IF NOT EXISTS PassableTiles AS
+            SELECT Collision.entity, Actor.x, Actor.y
+            FROM Collision
+            JOIN Actor ON Actor.entity = Collision.entity
+            WHERE Collision.ground = 1
+            AND Collision.entity NOT IN (
+                SELECT Collision.entity
+                FROM Collision
+                JOIN Actor ON Actor.entity = Collision.entity
+                JOIN Actor ground_actor ON ground_actor.x = Actor.x AND ground_actor.y = Actor.y
+                JOIN Collision ground_collision ON ground_collision.entity = ground_actor.entity
+                WHERE Collision.solid = 1 AND ground_collision.ground = 1
+            )
+        ",
         )
     }
 
