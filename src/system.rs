@@ -1,9 +1,11 @@
+use crate::game_object::{CONSOLE_HEIGHT, CONSOLE_WIDTH};
 use crate::{component, entity, game_object};
 
 use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point};
 use bracket_lib::prelude::SmallVec;
 use bracket_lib::terminal::{BTerm, VirtualKeyCode};
 use rand::Rng;
+use rusqlite::named_params;
 
 pub fn keydown_handler(
     sql: &rusqlite::Connection,
@@ -91,8 +93,8 @@ pub fn draw_actors(
     Ok(())
 }
 
-struct SimpleMap(Vec<bool>);
-impl SimpleMap {
+struct RowMap(Vec<(bool, i64, i64)>);
+impl RowMap {
     fn valid_exit(&self, location: Point, offset: Point) -> Option<usize> {
         let destination = location + offset;
         if destination.x < 0
@@ -103,22 +105,22 @@ impl SimpleMap {
             return None;
         }
         let dest = self.point2d_to_index(destination);
-        if self.0[dest] {
+        if self.0[dest].0 {
             return Some(dest);
         }
         None
     }
 }
 
-impl Algorithm2D for SimpleMap {
+impl Algorithm2D for RowMap {
     fn dimensions(&self) -> Point {
         Point::new(game_object::CONSOLE_WIDTH, game_object::CONSOLE_HEIGHT)
     }
 }
 
-impl BaseMap for SimpleMap {
+impl BaseMap for RowMap {
     fn is_opaque(&self, idx: usize) -> bool {
-        self.0[idx]
+        self.0[idx].0
     }
 
     fn get_available_exits(&self, idx: usize) -> SmallVec<[(usize, f32); 10]> {
@@ -170,33 +172,32 @@ pub fn apply_ai(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
             AND Ai.random = TRUE",
     )?;
 
-    // Create a map with the dimensions of the console
-    let mut map = SimpleMap(vec![
-        false;
-        (game_object::CONSOLE_WIDTH * game_object::CONSOLE_HEIGHT)
-            as usize
-    ]);
-
     // Query the database for ground tiles that are not solid
     let mut stmt = sql.prepare(
-        "SELECT x, y
-         FROM Actor
-         JOIN Collision ON Actor.entity = Collision.entity
-         WHERE Collision.ground = TRUE AND NOT Collision.solid
-         GROUP BY x, y",
+        "SELECT
+             ifnull(PassableTiles.entity, 0) AS passable,
+             grid.x,
+             grid.y
+         FROM (
+             SELECT x, y
+                FROM (SELECT value AS y FROM generate_series(0, :height - 1)),
+                    (SELECT value AS x FROM generate_series(0, :width - 1))
+         ) AS grid
+         LEFT JOIN PassableTiles on grid.x = PassableTiles.x AND grid.y = PassableTiles.y
+         ORDER BY grid.y, grid.x",
     )?;
-    let tiles = stmt.query_map((), |row| {
-        let x: i64 = row.get(0)?;
-        let y: i64 = row.get(1)?;
-        Ok((x, y))
-    })?;
-
-    // Set the properties of the map based on the query results
-    for tile in tiles {
-        let (x, y) = tile?;
-        let idx = map.point2d_to_index(Point::new(x, y));
-        map.0[idx] = true;
-    }
+    let map = RowMap(
+        stmt.query_map(
+            named_params! {":width": CONSOLE_WIDTH, ":height": CONSOLE_HEIGHT},
+            |row| {
+                let passable: bool = row.get("passable")?;
+                let x: i64 = row.get("x")?;
+                let y: i64 = row.get("y")?;
+                Ok((passable, x, y))
+            },
+        )?
+        .collect::<rusqlite::Result<Vec<(bool, i64, i64)>>>()?,
+    );
 
     // Query the database for the player's position
     let mut stmt = sql.prepare(

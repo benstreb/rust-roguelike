@@ -46,6 +46,8 @@ fn main() -> BResult<()> {
         BEGIN TRANSACTION;
     ",
     )?;
+    rusqlite::vtab::series::load_module(&conn)?;
+
     entity::create_table(&conn)?;
     component::create_tables(&conn)?;
     conn.execute_batch("END TRANSACTION")?;
