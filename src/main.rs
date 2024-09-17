@@ -54,7 +54,9 @@ fn main() -> BResult<()> {
 
     conn.execute("BEGIN TRANSACTION", rusqlite::params![])?;
     let player = game_object::init_player(&conn)?;
-    let initial_dungeon = map_gen::DefaultGenerator::new().generate(
+    let mut dungeon_generator = map_gen::DefaultGenerator::new();
+    // let mut dungeon_generator = map_gen::EmptyGenerator;
+    let initial_dungeon = dungeon_generator.generate(
         &mut rng.lock().unwrap(),
         game_object::CONSOLE_WIDTH,
         game_object::CONSOLE_HEIGHT - 1,
@@ -126,10 +128,10 @@ impl State {
             component::player::pass_time(&self.conn, 1)?;
             system::apply_regen(&self.conn)?;
             for _ in 0..25 {
-                system::generate_particles(&self.conn, &mut self.rng.lock().unwrap(), 25)?;
+                game_object::generate_particles(&self.conn, 25)?;
             }
             for _ in 0..5 {
-                system::generate_enemies(&self.conn, 10)?;
+                game_object::generate_enemies(&self.conn, 10)?;
             }
             system::cull_dead(&self.conn)?;
             system::cull_ephemeral(&self.conn)?;

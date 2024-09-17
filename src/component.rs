@@ -128,6 +128,10 @@ pub mod actor {
 }
 
 pub mod velocity {
+    use std::ops::RangeInclusive;
+
+    use rusqlite::named_params;
+
     use super::*;
 
     pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
@@ -155,6 +159,20 @@ pub mod velocity {
             VALUES (?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET dx = excluded.dx, dy = excluded.dy",
             params![entity, dx, dy],
+        )?;
+        Ok(())
+    }
+
+    pub fn set_random(
+        conn: &rusqlite::Connection,
+        entity: entity::Entity,
+        range: RangeInclusive<i64>,
+    ) -> rusqlite::Result<()> {
+        conn.execute(
+            "INSERT INTO Velocity (entity, dx, dy)
+            VALUES (:entity, pcg_randint(:min, :max), pcg_randint(:min, :max))
+            ON CONFLICT (entity) DO UPDATE SET dx = excluded.dx, dy = excluded.dy",
+            named_params![":entity": entity, ":min": range.start(), ":max": range.end()],
         )?;
         Ok(())
     }

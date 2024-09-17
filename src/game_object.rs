@@ -55,3 +55,23 @@ pub fn init_wall(
     component::collision::set(sql, panel, true, true, false)?;
     Ok(panel)
 }
+
+pub fn generate_particles(sql: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
+    let entity = entity::create(sql)?;
+    component::actor::set_on_random_empty_ground(sql, entity, "*", Plane::Particles)?;
+    component::velocity::set_random(sql, entity, -1..=1)?;
+    component::health::set(sql, entity, lifespan, lifespan, -1)?;
+    component::collision::set(sql, entity, false, false, true)?;
+    Ok(())
+}
+
+pub fn generate_enemies(sql: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
+    let entity = entity::create(sql).unwrap();
+    component::actor::set_on_random_empty_ground(sql, entity, "x", Plane::Enemies)?;
+    component::velocity::set(sql, entity, 0, 0)?;
+    component::health::set(sql, entity, lifespan, lifespan, -1)?;
+    component::collision::set(sql, entity, false, true, false)?;
+    component::ai::set_target_player(sql, entity)?;
+    // component::ai::set_random(sql, entity)?;
+    Ok(())
+}

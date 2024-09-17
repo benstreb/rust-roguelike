@@ -4,7 +4,6 @@ use crate::{component, entity, game_object};
 use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point};
 use bracket_lib::prelude::SmallVec;
 use bracket_lib::terminal::{BTerm, VirtualKeyCode};
-use rand::Rng;
 use rusqlite::named_params;
 
 pub fn keydown_handler(
@@ -288,36 +287,5 @@ pub fn cull_ephemeral(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
             ))
         )",
     )?;
-    Ok(())
-}
-
-pub fn generate_particles(
-    sql: &rusqlite::Connection,
-    rng: &mut rand_pcg::Pcg64Mcg,
-    lifespan: i64,
-) -> rusqlite::Result<()> {
-    let entity = entity::create(sql)?;
-    component::actor::set(
-        sql,
-        entity,
-        "*",
-        rng.gen_range(0..80),
-        rng.gen_range(0..25),
-        game_object::Plane::Particles,
-    )?;
-    component::velocity::set(sql, entity, rng.gen_range(-1..2), rng.gen_range(-1..2))?;
-    component::health::set(sql, entity, lifespan, lifespan, -1)?;
-    component::collision::set(sql, entity, false, false, true)?;
-    Ok(())
-}
-
-pub fn generate_enemies(sql: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
-    let entity = entity::create(sql).unwrap();
-    component::actor::set_on_random_empty_ground(sql, entity, "x", game_object::Plane::Enemies)?;
-    component::velocity::set(sql, entity, 0, 0)?;
-    component::health::set(sql, entity, lifespan, lifespan, -1)?;
-    component::collision::set(sql, entity, false, true, false)?;
-    component::ai::set_target_player(sql, entity)?;
-    // component::ai::set_random(sql, entity)?;
     Ok(())
 }
