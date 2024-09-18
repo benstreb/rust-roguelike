@@ -2,10 +2,12 @@ mod component;
 mod entity;
 mod game_object;
 mod map_gen;
+mod menu;
 mod system;
 
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
 use map_gen::{Generator, Tile};
+use menu::keydown_handler;
 use rand::{Rng, SeedableRng};
 use std::{io::Write, sync::Mutex};
 
@@ -101,6 +103,7 @@ fn main() -> BResult<()> {
             conn,
             turn_profiler,
             rng,
+            active_menu: Some(menu::main_menu()),
         },
     )
 }
@@ -110,14 +113,21 @@ struct State {
     conn: rusqlite::Connection,
     turn_profiler: TurnProfiler,
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    active_menu: Option<menu::Menu>,
 }
 
 impl State {
     fn tick_inner(&mut self, mut console: &mut BTerm) -> BResult<()> {
         // Game loop.
-        system::keydown_handler(&self.conn, console.key, self.player)?;
+        if self.active_menu.is_some() {
+            menu::keydown_handler(console.key, &mut self.active_menu)?;
+        } else {
+            system::keydown_handler(&self.conn, console.key, self.player)?;
+        }
 
-        if component::player::level(&self.conn)? == game_object::WIN_LEVEL {
+        if let Some(ref menu) = self.active_menu {
+            menu.draw(console);
+        } else if component::player::level(&self.conn)? == game_object::WIN_LEVEL {
             console.cls();
             console.print(1, 1, "You Win");
         } else if component::player::outstanding_turns(&self.conn)? > 0 {

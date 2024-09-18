@@ -1,10 +1,27 @@
 use crate::{component, entity};
+use bracket_lib::color;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 
 pub const CONSOLE_WIDTH: i64 = 80;
 pub const CONSOLE_HEIGHT: i64 = 25;
 
 pub const WIN_LEVEL: &str = "win";
+
+#[derive(Debug)]
+pub struct MenuColor {
+    pub fg: (u8, u8, u8),
+    pub bg: (u8, u8, u8),
+}
+
+pub const MENU_COLOR_UNSELECTED: MenuColor = MenuColor {
+    fg: color::WHITE,
+    bg: color::BLACK,
+};
+
+pub const MENU_COLOR_SELECTED: MenuColor = MenuColor {
+    fg: color::BLACK,
+    bg: color::WHITE,
+};
 
 #[derive(Clone, Copy, Debug, num_enum::TryFromPrimitive)]
 #[repr(i64)]
