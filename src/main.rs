@@ -3,13 +3,14 @@ mod entity;
 mod game_object;
 mod map_gen;
 mod menu;
+mod profiler;
 mod system;
 
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState, VirtualKeyCode};
 use map_gen::{Generator, Tile};
 use menu::main_menu;
 use rand::{Rng, SeedableRng};
-use std::{io::Write, sync::Mutex};
+use std::sync::Mutex;
 
 fn add_pcg_randint_function(
     db: &rusqlite::Connection,
@@ -33,7 +34,7 @@ fn add_pcg_randint_function(
 }
 
 fn main() -> BResult<()> {
-    let turn_log_file = std::fs::File::create("./turn_log.csv")?;
+    let turn_profiler = profiler::TurnProfiler::new("./turn_log.csv")?;
 
     let rng = Box::leak(Box::new(Mutex::new(rand_pcg::Pcg64Mcg::from_entropy())));
 
@@ -46,8 +47,6 @@ fn main() -> BResult<()> {
     let mut console = BTermBuilder::simple80x50()
         .with_title("Hello Rust World")
         .build()?;
-
-    let turn_profiler = TurnProfiler::new(turn_log_file)?;
 
     let main_menu = menu::main_menu();
     main_menu.draw(&mut console);
@@ -65,7 +64,7 @@ fn main() -> BResult<()> {
 
 struct State {
     conn: rusqlite::Connection,
-    turn_profiler: TurnProfiler,
+    turn_profiler: profiler::TurnProfiler,
     mode: GameMode,
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
 }
@@ -245,32 +244,4 @@ fn won_game_keydown_handler(
     if keycode.is_some() {
         *mode = GameMode::MainMenu(main_menu())
     }
-}
-
-struct TurnProfiler {
-    file: std::fs::File,
-}
-
-impl TurnProfiler {
-    fn new(mut file: std::fs::File) -> std::io::Result<Self> {
-        writeln!(file, "turn,time (ms),actors")?;
-        std::io::Result::Ok(TurnProfiler { file })
-    }
-
-    fn start(&mut self) -> TurnStart {
-        TurnStart {
-            start: std::time::Instant::now(),
-        }
-    }
-
-    fn end(&mut self, turn: i64, start: TurnStart, actor_count: i64) -> std::io::Result<()> {
-        let end = std::time::Instant::now();
-        let duration = end.duration_since(start.start);
-        let ms = duration.as_millis();
-        writeln!(self.file, "{},{},{}", turn, ms, actor_count)
-    }
-}
-
-struct TurnStart {
-    start: std::time::Instant,
 }
