@@ -7,7 +7,6 @@ mod system;
 
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
 use map_gen::{Generator, Tile};
-use menu::keydown_handler;
 use rand::{Rng, SeedableRng};
 use std::{io::Write, sync::Mutex};
 
@@ -42,118 +41,151 @@ fn main() -> BResult<()> {
 
     add_pcg_randint_function(&conn, rng)?;
 
-    conn.execute_batch(
-        "
-        PRAGMA foreign_keys = TRUE;
-        BEGIN TRANSACTION;
-    ",
-    )?;
-    rusqlite::vtab::series::load_module(&conn)?;
-
-    entity::create_table(&conn)?;
-    component::create_tables(&conn)?;
-    conn.execute_batch("END TRANSACTION")?;
-
-    conn.execute("BEGIN TRANSACTION", rusqlite::params![])?;
-    let player = game_object::init_player(&conn)?;
-    let mut dungeon_generator = map_gen::DefaultGenerator::new();
-    // let mut dungeon_generator = map_gen::EmptyGenerator;
-    let initial_dungeon = dungeon_generator.generate(
-        &mut rng.lock().unwrap(),
-        game_object::CONSOLE_WIDTH,
-        game_object::CONSOLE_HEIGHT - 1,
-    );
-
-    for (tile, x, y) in initial_dungeon.iter() {
-        let y = y + 1; // top row is reserved for diagnostics
-
-        if tile == Tile::Unused {
-            continue;
-        } else if tile == Tile::Floor || tile == Tile::Corridor {
-            game_object::init_floor(&conn, x, y)?;
-        } else if tile == Tile::Wall {
-            game_object::init_wall(&conn, "#", x, y)?;
-        } else if tile == Tile::ClosedDoor || tile == Tile::OpenDoor {
-            game_object::init_floor(&conn, x, y)?; // doors aren't supported at this time
-        } else if tile == Tile::DownStairs {
-            game_object::init_floor(&conn, x, y)?;
-            let down_stairs = entity::create(&conn)?;
-            component::actor::set(&conn, down_stairs, ">", x, y, game_object::Plane::Objects)?;
-            component::transition::set(&conn, down_stairs, game_object::WIN_LEVEL)?;
-        } else if tile == Tile::UpStairs {
-            game_object::init_floor(&conn, x, y)?;
-            // Player spawns where the up staircase would be
-            component::actor::set(&conn, player, "@", x, y, game_object::Plane::Player)?;
-        }
-    }
-    conn.execute_batch("COMMIT TRANSACTION")?;
-
     // Placeholder for game engine init
     let mut console = BTermBuilder::simple80x50()
         .with_title("Hello Rust World")
         .build()?;
-    system::draw_actors(&conn, &mut console)?;
 
     let turn_profiler = TurnProfiler::new(turn_log_file)?;
+
+    let main_menu = menu::main_menu();
+    main_menu.draw(&mut console);
 
     main_loop(
         console,
         State {
-            player,
             conn,
             turn_profiler,
             rng,
-            active_menu: Some(menu::main_menu()),
+            mode: GameMode::MainMenu(main_menu),
         },
     )
 }
 
 struct State {
-    player: entity::Entity,
     conn: rusqlite::Connection,
     turn_profiler: TurnProfiler,
+    mode: GameMode,
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
-    active_menu: Option<menu::Menu>,
+}
+
+enum GameMode {
+    MainMenu(menu::Menu),
+    InGame { player: entity::Entity },
+    WonGame,
+}
+
+impl GameMode {
+    fn new_game(
+        conn: &rusqlite::Connection,
+        rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    ) -> BResult<GameMode> {
+        conn.execute_batch(
+            "
+            PRAGMA foreign_keys = TRUE;
+            BEGIN TRANSACTION;
+        ",
+        )?;
+        rusqlite::vtab::series::load_module(&conn)?;
+
+        entity::create_table(&conn)?;
+        component::create_tables(&conn)?;
+        conn.execute_batch("END TRANSACTION")?;
+
+        conn.execute("BEGIN TRANSACTION", rusqlite::params![])?;
+        let player = game_object::init_player(&conn)?;
+        let mut dungeon_generator = map_gen::DefaultGenerator::new();
+        // let mut dungeon_generator = map_gen::EmptyGenerator;
+        let initial_dungeon = dungeon_generator.generate(
+            &mut rng.lock().unwrap(),
+            game_object::CONSOLE_WIDTH,
+            game_object::CONSOLE_HEIGHT - 1,
+        );
+
+        for (tile, x, y) in initial_dungeon.iter() {
+            let y = y + 1; // top row is reserved for diagnostics
+
+            if tile == Tile::Unused {
+                continue;
+            } else if tile == Tile::Floor || tile == Tile::Corridor {
+                game_object::init_floor(&conn, x, y)?;
+            } else if tile == Tile::Wall {
+                game_object::init_wall(&conn, "#", x, y)?;
+            } else if tile == Tile::ClosedDoor || tile == Tile::OpenDoor {
+                game_object::init_floor(&conn, x, y)?; // doors aren't supported at this time
+            } else if tile == Tile::DownStairs {
+                game_object::init_floor(&conn, x, y)?;
+                let down_stairs = entity::create(&conn)?;
+                component::actor::set(&conn, down_stairs, ">", x, y, game_object::Plane::Objects)?;
+                component::transition::set(&conn, down_stairs, game_object::WIN_LEVEL)?;
+            } else if tile == Tile::UpStairs {
+                game_object::init_floor(&conn, x, y)?;
+                // Player spawns where the up staircase would be
+                component::actor::set(&conn, player, "@", x, y, game_object::Plane::Player)?;
+            }
+        }
+
+        conn.execute_batch("COMMIT TRANSACTION")?;
+        Ok(GameMode::InGame { player: player })
+    }
 }
 
 impl State {
     fn tick_inner(&mut self, mut console: &mut BTerm) -> BResult<()> {
         // Game loop.
-        if self.active_menu.is_some() {
-            menu::keydown_handler(console.key, &mut self.active_menu)?;
-        } else {
-            system::keydown_handler(&self.conn, console.key, self.player)?;
-        }
+        match self.mode {
+            GameMode::MainMenu(ref mut menu) => {
+                menu.draw(console);
 
-        if let Some(ref menu) = self.active_menu {
-            menu.draw(console);
-        } else if component::player::level(&self.conn)? == game_object::WIN_LEVEL {
-            console.cls();
-            console.print(1, 1, "You Win");
-        } else if component::player::outstanding_turns(&self.conn)? > 0 {
-            self.conn.execute_batch("BEGIN TRANSACTION")?;
-            let turn_start = self.turn_profiler.start();
-            system::apply_ai(&self.conn)?;
-            system::move_actors(&self.conn)?;
-            component::player::pass_time(&self.conn, 1)?;
-            system::apply_regen(&self.conn)?;
-            for _ in 0..25 {
-                game_object::generate_particles(&self.conn, 25)?;
+                let selected = menu::keydown_handler(console.key, menu);
+                match selected {
+                    None => {}
+                    Some("New Game") => {
+                        self.mode = GameMode::new_game(&self.conn, self.rng)?;
+
+                        system::draw_actors(&self.conn, &mut console)?;
+                    }
+                    Some(selected) => {
+                        println!(
+                            "You selected {}. This is just for testing and doesn't do anything",
+                            selected
+                        )
+                    }
+                }
             }
-            for _ in 0..5 {
-                game_object::generate_enemies(&self.conn, 10)?;
+            GameMode::InGame { player } => {
+                system::keydown_handler(&self.conn, console.key, player)?;
+
+                if component::player::outstanding_turns(&self.conn)? > 0 {
+                    self.conn.execute_batch("BEGIN TRANSACTION")?;
+                    let turn_start = self.turn_profiler.start();
+                    system::apply_ai(&self.conn)?;
+                    system::move_actors(&self.conn)?;
+                    component::player::pass_time(&self.conn, 1)?;
+                    system::apply_regen(&self.conn)?;
+                    for _ in 0..25 {
+                        game_object::generate_particles(&self.conn, 25)?;
+                    }
+                    for _ in 0..5 {
+                        game_object::generate_enemies(&self.conn, 10)?;
+                    }
+                    system::cull_dead(&self.conn)?;
+                    system::cull_ephemeral(&self.conn)?;
+                    console.cls();
+                    system::draw_actors(&self.conn, &mut console)?;
+
+                    let turn = component::player::turns_passed(&self.conn)?;
+                    let actor_count = component::actor::count(&self.conn)?;
+                    self.conn.execute_batch("COMMIT TRANSACTION")?;
+
+                    self.turn_profiler.end(turn, turn_start, actor_count)?;
+                    console.print(0, 0, turn.to_string());
+                }
             }
-            system::cull_dead(&self.conn)?;
-            system::cull_ephemeral(&self.conn)?;
-            console.cls();
-            system::draw_actors(&self.conn, &mut console)?;
-
-            let turn = component::player::turns_passed(&self.conn)?;
-            let actor_count = component::actor::count(&self.conn)?;
-            self.conn.execute_batch("COMMIT TRANSACTION")?;
-
-            self.turn_profiler.end(turn, turn_start, actor_count)?;
-            console.print(0, 0, turn.to_string());
+            GameMode::WonGame => {
+                console.cls();
+                console.print(1, 1, "You Win");
+            }
         }
         BResult::Ok(())
     }

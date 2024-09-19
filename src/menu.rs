@@ -2,24 +2,23 @@ use bracket_lib::terminal::{VirtualKeyCode, BTerm};
 
 use crate::game_object;
 
-pub fn keydown_handler(
+pub fn keydown_handler<'a>(
     keycode: Option<VirtualKeyCode>,
-    menu: &mut Option<Menu>,
-) -> rusqlite::Result<()> {
-    let Some(ref mut m) = menu else {panic!("expected menu to be some in handler")};
+    menu: &'a mut Menu,
+) -> Option<&'a str> {
     match keycode {
         Some(VirtualKeyCode::Left) | Some(VirtualKeyCode::Up)=> {
-            m.add(-1);
+            menu.add(-1);
         }
         Some(VirtualKeyCode::Right) | Some(VirtualKeyCode::Down) => {
-            m.add(1);
+            menu.add(1);
         }
         Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
-            dbg!("I'm not trapped in here with you, you're trapped in here with me!");
+            return Some(&menu.items[menu.selected]);
         }
         _ => {}
     };
-    Ok(())
+    None
 }
 
 
