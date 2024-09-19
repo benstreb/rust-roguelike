@@ -46,49 +46,49 @@ impl FromSql for Plane {
     }
 }
 
-pub fn init_player(sql: &rusqlite::Connection) -> rusqlite::Result<entity::Entity> {
-    let player = entity::create(sql)?;
-    component::player::set(sql, player)?;
-    component::velocity::set(sql, player, 0, 0)?;
-    component::collision::set(sql, player, false, true, false)?;
+pub fn init_player(db: &rusqlite::Connection) -> rusqlite::Result<entity::Entity> {
+    let player = entity::create(db)?;
+    component::player::set(db, player)?;
+    component::velocity::set(db, player, 0, 0)?;
+    component::collision::set(db, player, false, true, false)?;
     Ok(player)
 }
 
-pub fn init_floor(sql: &rusqlite::Connection, x: i64, y: i64) -> rusqlite::Result<entity::Entity> {
-    let panel = entity::create(sql)?;
-    component::actor::set(sql, panel, ".", x, y, Plane::Ground)?;
-    component::collision::set(sql, panel, true, false, false)?;
+pub fn init_floor(db: &rusqlite::Connection, x: i64, y: i64) -> rusqlite::Result<entity::Entity> {
+    let panel = entity::create(db)?;
+    component::actor::set(db, panel, ".", x, y, Plane::Ground)?;
+    component::collision::set(db, panel, true, false, false)?;
     Ok(panel)
 }
 
 pub fn init_wall(
-    sql: &rusqlite::Connection,
+    db: &rusqlite::Connection,
     tile: &str,
     x: i64,
     y: i64,
 ) -> rusqlite::Result<entity::Entity> {
-    let panel = entity::create(sql)?;
-    component::actor::set(sql, panel, tile, x, y, Plane::Wall)?;
-    component::collision::set(sql, panel, true, true, false)?;
+    let panel = entity::create(db)?;
+    component::actor::set(db, panel, tile, x, y, Plane::Wall)?;
+    component::collision::set(db, panel, true, true, false)?;
     Ok(panel)
 }
 
-pub fn generate_particles(sql: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
-    let entity = entity::create(sql)?;
-    component::actor::set_on_random_empty_ground(sql, entity, "*", Plane::Particles)?;
-    component::velocity::set_random(sql, entity, -1..=1)?;
-    component::health::set(sql, entity, lifespan, lifespan, -1)?;
-    component::collision::set(sql, entity, false, false, true)?;
+pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
+    let entity = entity::create(db)?;
+    component::actor::set_on_random_empty_ground(db, entity, "*", Plane::Particles)?;
+    component::velocity::set_random(db, entity, -1..=1)?;
+    component::health::set(db, entity, lifespan, lifespan, -1)?;
+    component::collision::set(db, entity, false, false, true)?;
     Ok(())
 }
 
-pub fn generate_enemies(sql: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
-    let entity = entity::create(sql).unwrap();
-    component::actor::set_on_random_empty_ground(sql, entity, "x", Plane::Enemies)?;
-    component::velocity::set(sql, entity, 0, 0)?;
-    component::health::set(sql, entity, lifespan, lifespan, -1)?;
-    component::collision::set(sql, entity, false, true, false)?;
-    component::ai::set_target_player(sql, entity)?;
+pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
+    let entity = entity::create(db).unwrap();
+    component::actor::set_on_random_empty_ground(db, entity, "x", Plane::Enemies)?;
+    component::velocity::set(db, entity, 0, 0)?;
+    component::health::set(db, entity, lifespan, lifespan, -1)?;
+    component::collision::set(db, entity, false, true, false)?;
+    component::ai::set_target_player(db, entity)?;
     // component::ai::set_random(sql, entity)?;
     Ok(())
 }

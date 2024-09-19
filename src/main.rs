@@ -78,23 +78,23 @@ enum GameMode {
 
 impl GameMode {
     fn new_game(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
     ) -> BResult<GameMode> {
-        conn.execute_batch(
+        db.execute_batch(
             "
             PRAGMA foreign_keys = TRUE;
             BEGIN TRANSACTION;
         ",
         )?;
-        rusqlite::vtab::series::load_module(&conn)?;
+        rusqlite::vtab::series::load_module(&db)?;
 
-        entity::create_table(&conn)?;
-        component::create_tables(&conn)?;
-        conn.execute_batch("END TRANSACTION")?;
+        entity::create_table(&db)?;
+        component::create_tables(&db)?;
+        db.execute_batch("END TRANSACTION")?;
 
-        conn.execute("BEGIN TRANSACTION", rusqlite::params![])?;
-        let player = game_object::init_player(&conn)?;
+        db.execute("BEGIN TRANSACTION", rusqlite::params![])?;
+        let player = game_object::init_player(&db)?;
         let mut dungeon_generator = map_gen::DefaultGenerator::new();
         // let mut dungeon_generator = map_gen::EmptyGenerator;
         let initial_dungeon = dungeon_generator.generate(
@@ -109,24 +109,24 @@ impl GameMode {
             if tile == Tile::Unused {
                 continue;
             } else if tile == Tile::Floor || tile == Tile::Corridor {
-                game_object::init_floor(&conn, x, y)?;
+                game_object::init_floor(&db, x, y)?;
             } else if tile == Tile::Wall {
-                game_object::init_wall(&conn, "#", x, y)?;
+                game_object::init_wall(&db, "#", x, y)?;
             } else if tile == Tile::ClosedDoor || tile == Tile::OpenDoor {
-                game_object::init_floor(&conn, x, y)?; // doors aren't supported at this time
+                game_object::init_floor(&db, x, y)?; // doors aren't supported at this time
             } else if tile == Tile::DownStairs {
-                game_object::init_floor(&conn, x, y)?;
-                let down_stairs = entity::create(&conn)?;
-                component::actor::set(&conn, down_stairs, ">", x, y, game_object::Plane::Objects)?;
-                component::transition::set(&conn, down_stairs, game_object::WIN_LEVEL)?;
+                game_object::init_floor(&db, x, y)?;
+                let down_stairs = entity::create(&db)?;
+                component::actor::set(&db, down_stairs, ">", x, y, game_object::Plane::Objects)?;
+                component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
             } else if tile == Tile::UpStairs {
-                game_object::init_floor(&conn, x, y)?;
+                game_object::init_floor(&db, x, y)?;
                 // Player spawns where the up staircase would be
-                component::actor::set(&conn, player, "@", x, y, game_object::Plane::Player)?;
+                component::actor::set(&db, player, "@", x, y, game_object::Plane::Player)?;
             }
         }
 
-        conn.execute_batch("COMMIT TRANSACTION")?;
+        db.execute_batch("COMMIT TRANSACTION")?;
         Ok(GameMode::InGame { player: player })
     }
 }
@@ -201,33 +201,33 @@ impl GameState for State {
 }
 
 fn in_game_keydown_handler(
-    sql: &rusqlite::Connection,
+    db: &rusqlite::Connection,
     keycode: Option<VirtualKeyCode>,
     player: entity::Entity,
     mode: &mut GameMode,
 ) -> rusqlite::Result<()> {
-    if component::player::outstanding_turns(sql)? > 0 {
+    if component::player::outstanding_turns(db)? > 0 {
         return Ok(());
     }
     match keycode {
         Some(VirtualKeyCode::Left) => {
-            component::velocity::set(sql, player, -1, 0)?;
-            component::player::pass_time(sql, -1)?;
+            component::velocity::set(db, player, -1, 0)?;
+            component::player::pass_time(db, -1)?;
         }
         Some(VirtualKeyCode::Right) => {
-            component::velocity::set(sql, player, 1, 0)?;
-            component::player::pass_time(sql, -1)?;
+            component::velocity::set(db, player, 1, 0)?;
+            component::player::pass_time(db, -1)?;
         }
         Some(VirtualKeyCode::Up) => {
-            component::velocity::set(sql, player, 0, -1)?;
-            component::player::pass_time(sql, -1)?;
+            component::velocity::set(db, player, 0, -1)?;
+            component::player::pass_time(db, -1)?;
         }
         Some(VirtualKeyCode::Down) => {
-            component::velocity::set(sql, player, 0, 1)?;
-            component::player::pass_time(sql, -1)?;
+            component::velocity::set(db, player, 0, 1)?;
+            component::player::pass_time(db, -1)?;
         }
         Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
-            let new_level = system::follow_transition(sql)?;
+            let new_level = system::follow_transition(db)?;
             if new_level == game_object::WIN_LEVEL {
                 *mode = GameMode::WonGame;
             }

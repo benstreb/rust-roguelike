@@ -6,8 +6,8 @@ use bracket_lib::prelude::SmallVec;
 use bracket_lib::terminal::BTerm;
 use rusqlite::named_params;
 
-pub fn move_actors(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
-    sql.execute_batch(
+pub fn move_actors(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
         "
         -- Move the actor according to its velocity
         UPDATE Actor
@@ -27,8 +27,8 @@ pub fn move_actors(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
         ")
 }
 
-pub fn follow_transition(sql: &rusqlite::Connection) -> rusqlite::Result<String> {
-    sql.query_row(
+pub fn follow_transition(db: &rusqlite::Connection) -> rusqlite::Result<String> {
+    db.query_row(
         "
         UPDATE Player
         SET level = Transition.level
@@ -45,11 +45,8 @@ pub fn follow_transition(sql: &rusqlite::Connection) -> rusqlite::Result<String>
     )
 }
 
-pub fn draw_actors(
-    conn: &rusqlite::Connection,
-    console: &mut BTerm,
-) -> Result<(), rusqlite::Error> {
-    let mut conn = conn.prepare("SELECT tile, x, y FROM Actor ORDER BY plane DESC")?;
+pub fn draw_actors(db: &rusqlite::Connection, console: &mut BTerm) -> Result<(), rusqlite::Error> {
+    let mut conn = db.prepare("SELECT tile, x, y FROM Actor ORDER BY plane DESC")?;
     for row in conn.query_map((), |row| {
         let x: i64 = row.get("x")?;
         let y: i64 = row.get("y")?;
@@ -113,8 +110,8 @@ impl BaseMap for RowMap {
     }
 }
 
-pub fn apply_ai(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
-    sql.execute_batch(
+pub fn apply_ai(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
         "
         -- This query randomly updates all velocities with a random AI Type to
         -- one of the 8 cardinal directions. The spurious-seeming cor.val field
@@ -142,7 +139,7 @@ pub fn apply_ai(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
     )?;
 
     // Query the database for ground tiles that are not solid
-    let mut stmt = sql.prepare(
+    let mut stmt = db.prepare(
         "SELECT
              ifnull(PassableTiles.entity, 0) AS passable,
              grid.x,
@@ -169,7 +166,7 @@ pub fn apply_ai(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
     );
 
     // Query the database for the player's position
-    let mut stmt = sql.prepare(
+    let mut stmt = db.prepare(
         "SELECT x, y
          FROM Actor
          JOIN Player ON Actor.entity = Player.entity
@@ -182,7 +179,7 @@ pub fn apply_ai(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
     })?;
 
     // Query the database for actors with AI targeting the player
-    let mut stmt = sql.prepare(
+    let mut stmt = db.prepare(
         "SELECT Actor.entity, x, y
          FROM Actor
          JOIN Ai ON Actor.entity = Ai.entity
@@ -213,20 +210,20 @@ pub fn apply_ai(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
             let next_pos = map.index_to_point2d(path);
             let dx = next_pos.x - pos.x;
             let dy = next_pos.y - pos.y;
-            component::velocity::set(sql, entity, dx as i64, dy as i64)?;
+            component::velocity::set(db, entity, dx as i64, dy as i64)?;
         }
     }
 
     Ok(())
 }
 
-pub fn apply_regen(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
-    sql.execute_batch("UPDATE Health SET current = current + regen")?;
+pub fn apply_regen(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    db.execute_batch("UPDATE Health SET current = current + regen")?;
     Ok(())
 }
 
-pub fn cull_dead(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
-    sql.execute_batch(
+pub fn cull_dead(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
         "DELETE FROM Entity
         WHERE id IN (
             SELECT id
@@ -238,8 +235,8 @@ pub fn cull_dead(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-pub fn cull_ephemeral(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
-    sql.execute_batch(
+pub fn cull_ephemeral(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
         "DELETE FROM Entity
         WHERE id IN (
             SELECT Collision.entity

@@ -3,15 +3,15 @@ use crate::game_object;
 
 use rusqlite::params;
 
-pub fn create_tables(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-    player::create_table(conn)?;
-    actor::create_table(conn)?;
-    velocity::create_table(conn)?;
-    ai::create_table(conn)?;
-    collision::create_table(conn)?;
-    collision::create_passable_tiles_view(conn)?;
-    health::create_table(conn)?;
-    transition::create_table(conn)?;
+pub fn create_tables(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    player::create_table(db)?;
+    actor::create_table(db)?;
+    velocity::create_table(db)?;
+    ai::create_table(db)?;
+    collision::create_table(db)?;
+    collision::create_passable_tiles_view(db)?;
+    health::create_table(db)?;
+    transition::create_table(db)?;
     Ok(())
 }
 
@@ -20,8 +20,8 @@ pub mod player {
 
     use super::*;
 
-    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "CREATE TABLE IF NOT EXISTS Player (
                 entity INTEGER UNIQUE NOT NULL,
                 turn INTEGER,
@@ -32,8 +32,8 @@ pub mod player {
         )
     }
 
-    pub fn set(conn: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
-        conn.execute(
+    pub fn set(db: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
+        db.execute(
             "INSERT INTO Player (entity, turn, outstanding_turns, level)
             VALUES (?, 0, 1, '0')",
             params![entity],
@@ -41,8 +41,8 @@ pub mod player {
         Ok(())
     }
 
-    pub fn pass_time(conn: &rusqlite::Connection, turns: i64) -> rusqlite::Result<()> {
-        conn.execute(
+    pub fn pass_time(db: &rusqlite::Connection, turns: i64) -> rusqlite::Result<()> {
+        db.execute(
             "UPDATE Player
                 SET turn = turn + max(outstanding_turns - :turns, 0),
                     outstanding_turns = max(outstanding_turns - :turns, 0)",
@@ -51,26 +51,26 @@ pub mod player {
         Ok(())
     }
 
-    pub fn outstanding_turns(conn: &rusqlite::Connection) -> rusqlite::Result<i64> {
-        conn.query_row("SELECT outstanding_turns FROM Player LIMIT 1", (), |row| {
+    pub fn outstanding_turns(db: &rusqlite::Connection) -> rusqlite::Result<i64> {
+        db.query_row("SELECT outstanding_turns FROM Player LIMIT 1", (), |row| {
             row.get(0)
         })
     }
 
-    pub fn turns_passed(conn: &rusqlite::Connection) -> rusqlite::Result<i64> {
-        conn.query_row("SELECT turn FROM Player LIMIT 1", (), |row| row.get(0))
+    pub fn turns_passed(db: &rusqlite::Connection) -> rusqlite::Result<i64> {
+        db.query_row("SELECT turn FROM Player LIMIT 1", (), |row| row.get(0))
     }
 
-    pub fn level(conn: &rusqlite::Connection) -> rusqlite::Result<String> {
-        conn.query_row("SELECT level FROM Player LIMIT 1", (), |row| row.get(0))
+    pub fn level(db: &rusqlite::Connection) -> rusqlite::Result<String> {
+        db.query_row("SELECT level FROM Player LIMIT 1", (), |row| row.get(0))
     }
 }
 
 pub mod actor {
     use super::*;
 
-    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Actor (
                 entity INTEGER NOT NULL,
@@ -88,14 +88,14 @@ pub mod actor {
     }
 
     pub fn set(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
         tile: &str,
         x: i64,
         y: i64,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Actor (entity, tile, x, y, plane)
             VALUES (?, ?, ?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET tile = excluded.tile, x = excluded.x, y = excluded.y, plane = excluded.plane",
@@ -105,12 +105,12 @@ pub mod actor {
     }
 
     pub fn set_on_random_empty_ground(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
         tile: &str,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Actor (entity, tile, x, y, plane)
             SELECT ?, ?, x, y, ?
             FROM Actor
@@ -122,8 +122,8 @@ pub mod actor {
         Ok(())
     }
 
-    pub fn count(conn: &rusqlite::Connection) -> rusqlite::Result<i64> {
-        conn.query_row("SELECT COUNT(*) FROM Actor", (), |row| row.get(0))
+    pub fn count(db: &rusqlite::Connection) -> rusqlite::Result<i64> {
+        db.query_row("SELECT COUNT(*) FROM Actor", (), |row| row.get(0))
     }
 }
 
@@ -134,8 +134,8 @@ pub mod velocity {
 
     use super::*;
 
-    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Velocity (
                 entity INTEGER NOT NULL,
@@ -149,12 +149,12 @@ pub mod velocity {
     }
 
     pub fn set(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
         dx: i64,
         dy: i64,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Velocity (entity, dx, dy)
             VALUES (?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET dx = excluded.dx, dy = excluded.dy",
@@ -164,11 +164,11 @@ pub mod velocity {
     }
 
     pub fn set_random(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
         range: RangeInclusive<i64>,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Velocity (entity, dx, dy)
             VALUES (:entity, pcg_randint(:min, :max), pcg_randint(:min, :max))
             ON CONFLICT (entity) DO UPDATE SET dx = excluded.dx, dy = excluded.dy",
@@ -181,8 +181,8 @@ pub mod velocity {
 pub mod collision {
     use super::*;
 
-    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Collision (
                 entity INTEGER UNIQUE NOT NULL,
@@ -194,8 +194,8 @@ pub mod collision {
         )
     }
 
-    pub fn create_passable_tiles_view(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_passable_tiles_view(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "
             CREATE VIEW IF NOT EXISTS PassableTiles AS
             SELECT Collision.entity, Actor.x, Actor.y
@@ -215,13 +215,13 @@ pub mod collision {
     }
 
     pub fn set(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
         ground: bool,
         solid: bool,
         ephemeral: bool,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Collision (entity, ground, solid, ephemeral)
             VALUES (?, ?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET ground = excluded.ground, solid = excluded.solid, ephemeral = excluded.ephemeral",
@@ -234,8 +234,8 @@ pub mod collision {
 pub mod health {
     use super::*;
 
-    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Health (
                 entity INTEGER UNIQUE NOT NULL,
@@ -248,13 +248,13 @@ pub mod health {
     }
 
     pub fn set(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
         max: i64,
         current: i64,
         regen: i64,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Health (entity, max, current, regen)
             VALUES (?, ?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET max = excluded.max, current = excluded.current, regen = excluded.regen",
@@ -267,8 +267,8 @@ pub mod health {
 pub mod ai {
     use super::*;
 
-    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Ai (
                 entity INTEGER UNIQUE NOT NULL,
@@ -279,8 +279,8 @@ pub mod ai {
         )
     }
 
-    pub fn set_random(conn: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
-        conn.execute(
+    pub fn set_random(db: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
+        db.execute(
             "INSERT INTO Ai (entity, random, target_player)
             VALUES (?, TRUE, FALSE)
             ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
@@ -290,10 +290,10 @@ pub mod ai {
     }
 
     pub fn set_target_player(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Ai (entity, random, target_player)
             VALUES (?, FALSE, TRUE)
             ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
@@ -306,8 +306,8 @@ pub mod ai {
 pub mod transition {
     use super::*;
 
-    pub fn create_table(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
-        conn.execute_batch(
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Transition (
                 entity INTEGER UNIQUE NOT NULL,
@@ -318,11 +318,11 @@ pub mod transition {
     }
 
     pub fn set(
-        conn: &rusqlite::Connection,
+        db: &rusqlite::Connection,
         entity: entity::Entity,
         level: &str,
     ) -> rusqlite::Result<()> {
-        conn.execute(
+        db.execute(
             "INSERT INTO Transition (entity, level)
             VALUES (?, ?)
             ON CONFLICT (entity) DO UPDATE SET level = excluded.level",
