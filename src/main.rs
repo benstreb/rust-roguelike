@@ -5,8 +5,9 @@ mod map_gen;
 mod menu;
 mod system;
 
-use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
+use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState, VirtualKeyCode};
 use map_gen::{Generator, Tile};
+use menu::main_menu;
 use rand::{Rng, SeedableRng};
 use std::{io::Write, sync::Mutex};
 
@@ -154,7 +155,7 @@ impl State {
                 }
             }
             GameMode::InGame { player } => {
-                system::keydown_handler(&self.conn, console.key, player)?;
+                in_game_keydown_handler(&self.conn, console.key, player, &mut self.mode)?;
 
                 if component::player::outstanding_turns(&self.conn)? > 0 {
                     self.conn.execute_batch("BEGIN TRANSACTION")?;
@@ -183,6 +184,8 @@ impl State {
                 }
             }
             GameMode::WonGame => {
+                won_game_keydown_handler(&self.conn, console.key, &mut self.mode);
+
                 console.cls();
                 console.print(1, 1, "You Win");
             }
@@ -194,6 +197,53 @@ impl State {
 impl GameState for State {
     fn tick(&mut self, ctx: &mut BTerm) {
         self.tick_inner(ctx).expect("Fatal error in game loop.");
+    }
+}
+
+fn in_game_keydown_handler(
+    sql: &rusqlite::Connection,
+    keycode: Option<VirtualKeyCode>,
+    player: entity::Entity,
+    mode: &mut GameMode,
+) -> rusqlite::Result<()> {
+    if component::player::outstanding_turns(sql)? > 0 {
+        return Ok(());
+    }
+    match keycode {
+        Some(VirtualKeyCode::Left) => {
+            component::velocity::set(sql, player, -1, 0)?;
+            component::player::pass_time(sql, -1)?;
+        }
+        Some(VirtualKeyCode::Right) => {
+            component::velocity::set(sql, player, 1, 0)?;
+            component::player::pass_time(sql, -1)?;
+        }
+        Some(VirtualKeyCode::Up) => {
+            component::velocity::set(sql, player, 0, -1)?;
+            component::player::pass_time(sql, -1)?;
+        }
+        Some(VirtualKeyCode::Down) => {
+            component::velocity::set(sql, player, 0, 1)?;
+            component::player::pass_time(sql, -1)?;
+        }
+        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
+            let new_level = system::follow_transition(sql)?;
+            if new_level == game_object::WIN_LEVEL {
+                *mode = GameMode::WonGame;
+            }
+        }
+        _ => {}
+    };
+    Ok(())
+}
+
+fn won_game_keydown_handler(
+    _: &rusqlite::Connection,
+    keycode: Option<VirtualKeyCode>,
+    mode: &mut GameMode,
+) {
+    if keycode.is_some() {
+        *mode = GameMode::MainMenu(main_menu())
     }
 }
 

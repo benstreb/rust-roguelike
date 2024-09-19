@@ -3,41 +3,8 @@ use crate::{component, entity, game_object};
 
 use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point};
 use bracket_lib::prelude::SmallVec;
-use bracket_lib::terminal::{BTerm, VirtualKeyCode};
+use bracket_lib::terminal::BTerm;
 use rusqlite::named_params;
-
-pub fn keydown_handler(
-    sql: &rusqlite::Connection,
-    keycode: Option<VirtualKeyCode>,
-    player: entity::Entity,
-) -> rusqlite::Result<()> {
-    if component::player::outstanding_turns(sql)? > 0 {
-        return Ok(());
-    }
-    match keycode {
-        Some(VirtualKeyCode::Left) => {
-            component::velocity::set(sql, player, -1, 0)?;
-            component::player::pass_time(sql, -1)?;
-        }
-        Some(VirtualKeyCode::Right) => {
-            component::velocity::set(sql, player, 1, 0)?;
-            component::player::pass_time(sql, -1)?;
-        }
-        Some(VirtualKeyCode::Up) => {
-            component::velocity::set(sql, player, 0, -1)?;
-            component::player::pass_time(sql, -1)?;
-        }
-        Some(VirtualKeyCode::Down) => {
-            component::velocity::set(sql, player, 0, 1)?;
-            component::player::pass_time(sql, -1)?;
-        }
-        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
-            follow_transition(sql)?;
-        }
-        _ => {}
-    };
-    Ok(())
-}
 
 pub fn move_actors(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
     sql.execute_batch(
@@ -60,8 +27,8 @@ pub fn move_actors(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
         ")
 }
 
-pub fn follow_transition(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
-    sql.execute_batch(
+pub fn follow_transition(sql: &rusqlite::Connection) -> rusqlite::Result<String> {
+    sql.query_row(
         "
         UPDATE Player
         SET level = Transition.level
@@ -71,7 +38,10 @@ pub fn follow_transition(sql: &rusqlite::Connection) -> rusqlite::Result<()> {
             ON player_actor.x = transition_actor.x
             AND player_actor.y = transition_actor.y
         WHERE player_actor.entity = Player.entity
+        RETURNING level
         ",
+        [],
+        |row| row.get::<usize, String>(0),
     )
 }
 
