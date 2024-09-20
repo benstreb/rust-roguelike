@@ -28,3 +28,14 @@ pub fn create(db: &rusqlite::Connection) -> rusqlite::Result<Entity> {
         Ok(Entity { id: row.get(0)? })
     })
 }
+
+pub fn load_player(db: &rusqlite::Connection) -> rusqlite::Result<Entity> {
+    db.query_row(
+        "
+    SELECT id
+    FROM Entity
+    JOIN Player",
+        [],
+        |row| Ok(Entity { id: row.get(0)? }),
+    )
+}

@@ -118,6 +118,16 @@ impl GameMode {
 
         Ok(GameMode::InGame { db, player })
     }
+
+    fn load_game(
+        rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+        console: &mut BTerm,
+    ) -> BResult<GameMode> {
+        let db = open_db("game.db", rng)?;
+        let player = entity::load_player(&db)?;
+        system::draw_actors(&db, console)?;
+        Ok(GameMode::InGame { db, player })
+    }
 }
 
 impl State {
@@ -132,6 +142,9 @@ impl State {
                     None => {}
                     Some("New Game") => {
                         self.mode = GameMode::new_game(self.rng, console)?;
+                    }
+                    Some("Load Game") => {
+                        self.mode = GameMode::load_game(self.rng, console)?;
                     }
                     Some(selected) => {
                         println!(

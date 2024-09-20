@@ -1,13 +1,10 @@
-use bracket_lib::terminal::{VirtualKeyCode, BTerm};
+use bracket_lib::terminal::{BTerm, VirtualKeyCode};
 
 use crate::game_object;
 
-pub fn keydown_handler<'a>(
-    keycode: Option<VirtualKeyCode>,
-    menu: &'a mut Menu,
-) -> Option<&'a str> {
+pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) -> Option<&'a str> {
     match keycode {
-        Some(VirtualKeyCode::Left) | Some(VirtualKeyCode::Up)=> {
+        Some(VirtualKeyCode::Left) | Some(VirtualKeyCode::Up) => {
             menu.add(-1);
         }
         Some(VirtualKeyCode::Right) | Some(VirtualKeyCode::Down) => {
@@ -21,8 +18,6 @@ pub fn keydown_handler<'a>(
     None
 }
 
-
-
 #[derive(Debug)]
 pub struct Menu {
     top_left_x: i64,
@@ -31,24 +26,24 @@ pub struct Menu {
     items: Vec<String>,
 }
 
+const NEW_GAME: &str = "New Game";
+const LOAD_GAME: &str = "Load Game";
+
 pub fn main_menu() -> Menu {
     Menu {
         top_left_x: 0,
         top_left_y: 0,
         selected: 0,
         items: vec![
-            "New Game".to_string(),
-            "Placeholder 1".to_string(),
+            NEW_GAME.to_string(),
+            LOAD_GAME.to_string(),
             "Placeholder 2".to_string(),
-        ]
+        ],
     }
 }
 
 impl Menu {
-    pub fn draw(
-        &self,
-        console: &mut BTerm,
-    ) -> () {
+    pub fn draw(&self, console: &mut BTerm) -> () {
         for (i, item) in self.items.iter().enumerate() {
             let color: game_object::MenuColor;
             if i == self.selected {
@@ -57,7 +52,7 @@ impl Menu {
                 color = game_object::MENU_COLOR_UNSELECTED;
             }
             console.print_color(
-                self.top_left_x, 
+                self.top_left_x,
                 self.top_left_y + i as i64,
                 color.fg,
                 color.bg,
