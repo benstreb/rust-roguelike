@@ -133,7 +133,7 @@ impl GameMode {
 }
 
 impl State {
-    fn tick_inner(&mut self, mut console: &mut BTerm) -> BResult<()> {
+    fn tick_inner(&mut self, console: &mut BTerm) -> BResult<()> {
         // Game loop.
         match self.mode {
             GameMode::MainMenu(ref mut menu) => {
