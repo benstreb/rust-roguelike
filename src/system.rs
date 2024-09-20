@@ -4,7 +4,7 @@ use crate::{component, entity, game_object};
 use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point};
 use bracket_lib::prelude::SmallVec;
 use bracket_lib::terminal::BTerm;
-use rusqlite::named_params;
+use rusqlite::{named_params, OptionalExtension};
 
 pub fn move_actors(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     db.execute_batch(
@@ -27,7 +27,7 @@ pub fn move_actors(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         ")
 }
 
-pub fn follow_transition(db: &rusqlite::Connection) -> rusqlite::Result<String> {
+pub fn follow_transition(db: &rusqlite::Connection) -> rusqlite::Result<Option<String>> {
     db.query_row(
         "
         UPDATE Player
@@ -43,6 +43,7 @@ pub fn follow_transition(db: &rusqlite::Connection) -> rusqlite::Result<String> 
         [],
         |row| row.get::<usize, String>(0),
     )
+    .optional()
 }
 
 pub fn draw_actors(db: &rusqlite::Connection, console: &mut BTerm) -> Result<(), rusqlite::Error> {

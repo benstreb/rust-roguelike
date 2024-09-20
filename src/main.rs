@@ -251,7 +251,7 @@ fn in_game_keydown_handler(
         }
         Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
             let new_level = system::follow_transition(db)?;
-            if new_level == game_object::WIN_LEVEL {
+            if new_level == Some(game_object::WIN_LEVEL.to_string()) {
                 return Ok(Some(GameMode::WonGame));
             }
         }
