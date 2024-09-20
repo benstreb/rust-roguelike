@@ -48,29 +48,6 @@ impl FromSql for Tile {
         })
     }
 }
-/*
-    class Dungeon {
-    private:
-        const int _width, _height;
-        std::vector<Tile> _tiles;
-
-    private:
-        inline Dungeon(int width, int height)
-            : _width(width)
-            , _height(height)
-            , _tiles(width* height, Tile::Unused)
-        {
-        }
-    public:
-        static Dungeon generate(pcg32& rng, int width, int height);
-        static Dungeon generate_empty(pcg32& rng, int width, int height);
-        void foreach_tile(std::function<void(Tile, int, int)> tile_consumer);
-        Tile get(int x, int y, Tile _default) const;
-        Tile& operator()(int x, int y);
-
-        friend class DefaultGenerator;
-    };
-*/
 
 pub struct Dungeon {
     width: i64,
@@ -173,7 +150,6 @@ impl Generator for DefaultGenerator {
         };
         let max_features = 50;
         self.populate(rng, &mut dungeon, max_features);
-        dungeon[(1, 1)] = Tile::UpStairs;
         dungeon
     }
 }
