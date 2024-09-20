@@ -112,7 +112,8 @@ impl GameMode {
                 component::actor::set(&db, player, "@", x, y, game_object::Plane::Player)?;
             }
         }
-        system::draw_actors(&db, console)?;
+
+        draw_screen(&db, console, 0)?;
 
         db.execute_batch("COMMIT TRANSACTION")?;
 
@@ -125,7 +126,8 @@ impl GameMode {
     ) -> BResult<GameMode> {
         let db = open_db("game.db", rng)?;
         let player = entity::load_player(&db)?;
-        system::draw_actors(&db, console)?;
+        let turn = component::player::turns_passed(&db)?;
+        draw_screen(&db, console, turn)?;
         Ok(GameMode::InGame { db, player })
     }
 }
@@ -174,15 +176,14 @@ impl State {
                     }
                     system::cull_dead(db)?;
                     system::cull_ephemeral(db)?;
-                    console.cls();
-                    system::draw_actors(db, &mut console)?;
-
                     let turn = component::player::turns_passed(db)?;
+
+                    draw_screen(db, console, turn)?;
+
                     let actor_count = component::actor::count(db)?;
                     db.execute_batch("COMMIT TRANSACTION")?;
 
                     self.turn_profiler.end(turn, turn_start, actor_count)?;
-                    console.print(0, 0, turn.to_string());
                 }
             }
             GameMode::WonGame => {
@@ -214,6 +215,13 @@ fn open_db<P: AsRef<Path>>(
     db.execute_batch("PRAGMA foreign_keys = TRUE")?;
 
     Ok(db)
+}
+
+fn draw_screen(db: &rusqlite::Connection, console: &mut BTerm, turn: i64) -> BResult<()> {
+    console.cls();
+    system::draw_actors(db, console)?;
+    console.print(0, 0, turn.to_string());
+    Ok(())
 }
 
 fn in_game_keydown_handler(

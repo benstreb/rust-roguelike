@@ -35,7 +35,7 @@ pub mod player {
     pub fn set(db: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
         db.execute(
             "INSERT INTO Player (entity, turn, outstanding_turns, level)
-            VALUES (?, 0, 1, '0')",
+            VALUES (?, 0, 0, '0')",
             params![entity],
         )?;
         Ok(())
