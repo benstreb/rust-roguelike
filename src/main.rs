@@ -10,7 +10,7 @@ use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState, V
 use map_gen::{Generator, Tile};
 use menu::main_menu;
 use rand::{Rng, SeedableRng};
-use std::sync::Mutex;
+use std::{path::Path, sync::Mutex};
 
 fn add_pcg_randint_function(
     db: &rusqlite::Connection,
@@ -38,11 +38,6 @@ fn main() -> BResult<()> {
 
     let rng = Box::leak(Box::new(Mutex::new(rand_pcg::Pcg64Mcg::from_entropy())));
 
-    let conn = rusqlite::Connection::open_in_memory()?;
-    // let conn = rusqlite::Connection::open("game.db")?;
-
-    add_pcg_randint_function(&conn, rng)?;
-
     // Placeholder for game engine init
     let mut console = BTermBuilder::simple80x50()
         .with_title("Hello Rust World")
@@ -54,7 +49,6 @@ fn main() -> BResult<()> {
     main_loop(
         console,
         State {
-            conn,
             turn_profiler,
             rng,
             mode: GameMode::MainMenu(main_menu),
@@ -63,36 +57,30 @@ fn main() -> BResult<()> {
 }
 
 struct State {
-    conn: rusqlite::Connection,
     turn_profiler: profiler::TurnProfiler,
     mode: GameMode,
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
 }
 
+#[derive(Debug)]
 enum GameMode {
     MainMenu(menu::Menu),
-    InGame { player: entity::Entity },
+    InGame {
+        db: rusqlite::Connection,
+        player: entity::Entity,
+    },
     WonGame,
 }
 
 impl GameMode {
-    fn new_game(
-        db: &rusqlite::Connection,
-        rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
-    ) -> BResult<GameMode> {
-        db.execute_batch(
-            "
-            PRAGMA foreign_keys = TRUE;
-            BEGIN TRANSACTION;
-        ",
-        )?;
-        rusqlite::vtab::series::load_module(&db)?;
+    fn new_game(rng: &'static Mutex<rand_pcg::Pcg64Mcg>, console: &mut BTerm) -> BResult<GameMode> {
+        std::fs::remove_file("game.db")?;
+        let db = open_db("game.db", rng)?;
 
+        db.execute_batch("BEGIN TRANSACTION")?;
         entity::create_table(&db)?;
         component::create_tables(&db)?;
-        db.execute_batch("END TRANSACTION")?;
 
-        db.execute("BEGIN TRANSACTION", rusqlite::params![])?;
         let player = game_object::init_player(&db)?;
         let mut dungeon_generator = map_gen::DefaultGenerator::new();
         // let mut dungeon_generator = map_gen::EmptyGenerator;
@@ -124,9 +112,11 @@ impl GameMode {
                 component::actor::set(&db, player, "@", x, y, game_object::Plane::Player)?;
             }
         }
+        system::draw_actors(&db, console)?;
 
         db.execute_batch("COMMIT TRANSACTION")?;
-        Ok(GameMode::InGame { player: player })
+
+        Ok(GameMode::InGame { db, player })
     }
 }
 
@@ -141,9 +131,7 @@ impl State {
                 match selected {
                     None => {}
                     Some("New Game") => {
-                        self.mode = GameMode::new_game(&self.conn, self.rng)?;
-
-                        system::draw_actors(&self.conn, &mut console)?;
+                        self.mode = GameMode::new_game(self.rng, console)?;
                     }
                     Some(selected) => {
                         println!(
@@ -153,37 +141,39 @@ impl State {
                     }
                 }
             }
-            GameMode::InGame { player } => {
-                in_game_keydown_handler(&self.conn, console.key, player, &mut self.mode)?;
+            GameMode::InGame { ref db, player } => {
+                let new_mode = in_game_keydown_handler(db, console.key, player)?;
 
-                if component::player::outstanding_turns(&self.conn)? > 0 {
-                    self.conn.execute_batch("BEGIN TRANSACTION")?;
+                if let Some(GameMode::WonGame) = new_mode {
+                    self.mode = GameMode::WonGame;
+                } else if component::player::outstanding_turns(db)? > 0 {
+                    db.execute_batch("BEGIN TRANSACTION")?;
                     let turn_start = self.turn_profiler.start();
-                    system::apply_ai(&self.conn)?;
-                    system::move_actors(&self.conn)?;
-                    component::player::pass_time(&self.conn, 1)?;
-                    system::apply_regen(&self.conn)?;
+                    system::apply_ai(db)?;
+                    system::move_actors(db)?;
+                    component::player::pass_time(db, 1)?;
+                    system::apply_regen(db)?;
                     for _ in 0..25 {
-                        game_object::generate_particles(&self.conn, 25)?;
+                        game_object::generate_particles(db, 25)?;
                     }
                     for _ in 0..5 {
-                        game_object::generate_enemies(&self.conn, 10)?;
+                        game_object::generate_enemies(db, 10)?;
                     }
-                    system::cull_dead(&self.conn)?;
-                    system::cull_ephemeral(&self.conn)?;
+                    system::cull_dead(db)?;
+                    system::cull_ephemeral(db)?;
                     console.cls();
-                    system::draw_actors(&self.conn, &mut console)?;
+                    system::draw_actors(db, &mut console)?;
 
-                    let turn = component::player::turns_passed(&self.conn)?;
-                    let actor_count = component::actor::count(&self.conn)?;
-                    self.conn.execute_batch("COMMIT TRANSACTION")?;
+                    let turn = component::player::turns_passed(db)?;
+                    let actor_count = component::actor::count(db)?;
+                    db.execute_batch("COMMIT TRANSACTION")?;
 
                     self.turn_profiler.end(turn, turn_start, actor_count)?;
                     console.print(0, 0, turn.to_string());
                 }
             }
             GameMode::WonGame => {
-                won_game_keydown_handler(&self.conn, console.key, &mut self.mode);
+                won_game_keydown_handler(console.key, &mut self.mode);
 
                 console.cls();
                 console.print(1, 1, "You Win");
@@ -199,14 +189,27 @@ impl GameState for State {
     }
 }
 
+fn open_db<P: AsRef<Path>>(
+    path: P,
+    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+) -> rusqlite::Result<rusqlite::Connection> {
+    let db = rusqlite::Connection::open(path)?;
+
+    rusqlite::vtab::series::load_module(&db)?;
+    add_pcg_randint_function(&db, rng)?;
+
+    db.execute_batch("PRAGMA foreign_keys = TRUE")?;
+
+    Ok(db)
+}
+
 fn in_game_keydown_handler(
     db: &rusqlite::Connection,
     keycode: Option<VirtualKeyCode>,
     player: entity::Entity,
-    mode: &mut GameMode,
-) -> rusqlite::Result<()> {
+) -> rusqlite::Result<Option<GameMode>> {
     if component::player::outstanding_turns(db)? > 0 {
-        return Ok(());
+        return Ok(None);
     }
     match keycode {
         Some(VirtualKeyCode::Left) => {
@@ -228,19 +231,15 @@ fn in_game_keydown_handler(
         Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
             let new_level = system::follow_transition(db)?;
             if new_level == game_object::WIN_LEVEL {
-                *mode = GameMode::WonGame;
+                return Ok(Some(GameMode::WonGame));
             }
         }
         _ => {}
     };
-    Ok(())
+    Ok(None)
 }
 
-fn won_game_keydown_handler(
-    _: &rusqlite::Connection,
-    keycode: Option<VirtualKeyCode>,
-    mode: &mut GameMode,
-) {
+fn won_game_keydown_handler(keycode: Option<VirtualKeyCode>, mode: &mut GameMode) {
     if keycode.is_some() {
         *mode = GameMode::MainMenu(main_menu())
     }
