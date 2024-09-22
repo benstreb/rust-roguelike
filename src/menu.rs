@@ -16,7 +16,9 @@ pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) 
         Some(VirtualKeyCode::Right) | Some(VirtualKeyCode::Down) => {
             menu.add(1);
         }
-        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
+        Some(VirtualKeyCode::Space)
+        | Some(VirtualKeyCode::NumpadEnter)
+        | Some(VirtualKeyCode::Return) => {
             return MenuResult::Selected(&menu.items[menu.selected]);
         }
         Some(VirtualKeyCode::Escape) => {
