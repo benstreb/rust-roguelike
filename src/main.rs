@@ -3,6 +3,7 @@ mod entity;
 mod game_object;
 mod map_gen;
 mod menu;
+mod meta;
 mod profiler;
 mod system;
 
@@ -51,118 +52,109 @@ fn main() -> BResult<()> {
         State {
             turn_profiler,
             rng,
-            mode: GameMode::MainMenu(main_menu),
+            mode: meta::GameMode::MainMenu(main_menu),
         },
     )
 }
 
 struct State {
     turn_profiler: profiler::TurnProfiler,
-    mode: GameMode,
+    mode: meta::GameMode,
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
 }
 
-#[derive(Debug)]
-enum GameMode {
-    MainMenu(menu::Menu),
-    InGame {
-        db: rusqlite::Connection,
-        player: entity::Entity,
-    },
-    WonGame,
+fn new_game(
+    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    console: &mut BTerm,
+) -> BResult<meta::GameMode> {
+    std::fs::remove_file("game.db")?;
+    let db = open_db("game.db", rng)?;
+
+    db.execute_batch("BEGIN TRANSACTION")?;
+    entity::create_table(&db)?;
+    component::create_tables(&db)?;
+
+    let player = game_object::init_player(&db)?;
+    let mut dungeon_generator = map_gen::DefaultGenerator::new();
+    // let mut dungeon_generator = map_gen::EmptyGenerator;
+    let initial_dungeon = dungeon_generator.generate(
+        &mut rng.lock().unwrap(),
+        game_object::CONSOLE_WIDTH,
+        game_object::CONSOLE_HEIGHT - 1,
+    );
+
+    for (tile, x, y) in initial_dungeon.iter() {
+        let y = y + 1; // top row is reserved for diagnostics
+
+        if tile == Tile::Unused {
+            continue;
+        } else if tile == Tile::Floor || tile == Tile::Corridor {
+            game_object::init_floor(&db, x, y)?;
+        } else if tile == Tile::Wall {
+            game_object::init_wall(&db, "#", x, y)?;
+        } else if tile == Tile::ClosedDoor || tile == Tile::OpenDoor {
+            game_object::init_floor(&db, x, y)?; // doors aren't supported at this time
+        } else if tile == Tile::DownStairs {
+            game_object::init_floor(&db, x, y)?;
+            let down_stairs = entity::create(&db)?;
+            component::actor::set(
+                &db,
+                down_stairs,
+                ">",
+                x,
+                y,
+                game_object::PLAYER_COLOR.into(),
+                game_object::Plane::Objects,
+            )?;
+            component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
+        } else if tile == Tile::UpStairs {
+            game_object::init_floor(&db, x, y)?;
+            // Player spawns where the up staircase would be
+            component::actor::set(
+                &db,
+                player,
+                "@",
+                x,
+                y,
+                game_object::STAIR_COLOR.into(),
+                game_object::Plane::Player,
+            )?;
+        }
+    }
+
+    draw_screen(&db, console, 0)?;
+
+    db.execute_batch("COMMIT TRANSACTION")?;
+
+    Ok(meta::GameMode::InGame { db, player })
 }
 
-impl GameMode {
-    fn new_game(rng: &'static Mutex<rand_pcg::Pcg64Mcg>, console: &mut BTerm) -> BResult<GameMode> {
-        std::fs::remove_file("game.db")?;
-        let db = open_db("game.db", rng)?;
-
-        db.execute_batch("BEGIN TRANSACTION")?;
-        entity::create_table(&db)?;
-        component::create_tables(&db)?;
-
-        let player = game_object::init_player(&db)?;
-        let mut dungeon_generator = map_gen::DefaultGenerator::new();
-        // let mut dungeon_generator = map_gen::EmptyGenerator;
-        let initial_dungeon = dungeon_generator.generate(
-            &mut rng.lock().unwrap(),
-            game_object::CONSOLE_WIDTH,
-            game_object::CONSOLE_HEIGHT - 1,
-        );
-
-        for (tile, x, y) in initial_dungeon.iter() {
-            let y = y + 1; // top row is reserved for diagnostics
-
-            if tile == Tile::Unused {
-                continue;
-            } else if tile == Tile::Floor || tile == Tile::Corridor {
-                game_object::init_floor(&db, x, y)?;
-            } else if tile == Tile::Wall {
-                game_object::init_wall(&db, "#", x, y)?;
-            } else if tile == Tile::ClosedDoor || tile == Tile::OpenDoor {
-                game_object::init_floor(&db, x, y)?; // doors aren't supported at this time
-            } else if tile == Tile::DownStairs {
-                game_object::init_floor(&db, x, y)?;
-                let down_stairs = entity::create(&db)?;
-                component::actor::set(
-                    &db,
-                    down_stairs,
-                    ">",
-                    x,
-                    y,
-                    game_object::PLAYER_COLOR.into(),
-                    game_object::Plane::Objects,
-                )?;
-                component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
-            } else if tile == Tile::UpStairs {
-                game_object::init_floor(&db, x, y)?;
-                // Player spawns where the up staircase would be
-                component::actor::set(
-                    &db,
-                    player,
-                    "@",
-                    x,
-                    y,
-                    game_object::STAIR_COLOR.into(),
-                    game_object::Plane::Player,
-                )?;
-            }
-        }
-
-        draw_screen(&db, console, 0)?;
-
-        db.execute_batch("COMMIT TRANSACTION")?;
-
-        Ok(GameMode::InGame { db, player })
-    }
-
-    fn load_game(
-        rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
-        console: &mut BTerm,
-    ) -> BResult<GameMode> {
-        let db = open_db("game.db", rng)?;
-        let player = entity::load_player(&db)?;
-        let turn = component::player::turns_passed(&db)?;
-        draw_screen(&db, console, turn)?;
-        Ok(GameMode::InGame { db, player })
-    }
+fn load_game(
+    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    console: &mut BTerm,
+) -> BResult<meta::GameMode> {
+    let db = open_db("game.db", rng)?;
+    let player = entity::load_player(&db)?;
+    let turn = component::player::turns_passed(&db)?;
+    draw_screen(&db, console, turn)?;
+    Ok(meta::GameMode::InGame { db, player })
 }
 
 impl State {
     fn tick_inner(&mut self, console: &mut BTerm) -> BResult<()> {
         // Game loop.
         match self.mode {
-            GameMode::MainMenu(ref mut menu) => {
+            meta::GameMode::MainMenu(ref mut menu) => {
                 menu.draw(console);
 
                 let selected = menu::keydown_handler(console.key, menu);
                 match selected {
                     menu::MenuResult::None => {}
                     menu::MenuResult::Selected(menu::NEW_GAME) => {
-                        self.mode = GameMode::new_game(self.rng, console)?;
+                        self.mode = new_game(self.rng, console)?;
                     }
                     menu::MenuResult::Selected(menu::LOAD_GAME) => {
-                        self.mode = GameMode::load_game(self.rng, console)?;
+                        self.mode = load_game(self.rng, console)?;
                     }
                     menu::MenuResult::Selected(selected) => {
                         println!(
@@ -175,11 +167,11 @@ impl State {
                     }
                 }
             }
-            GameMode::InGame { ref db, player } => {
+            meta::GameMode::InGame { ref db, player } => {
                 let new_mode = in_game_keydown_handler(db, console.key, player)?;
 
-                if let Some(GameMode::WonGame) = new_mode {
-                    self.mode = GameMode::WonGame;
+                if let Some(meta::GameMode::WonGame) = new_mode {
+                    self.mode = meta::GameMode::WonGame;
                 } else if component::player::outstanding_turns(db)? > 0 {
                     db.execute_batch("BEGIN TRANSACTION")?;
                     let turn_start = self.turn_profiler.start();
@@ -205,7 +197,7 @@ impl State {
                     self.turn_profiler.end(turn, turn_start, actor_count)?;
                 }
             }
-            GameMode::WonGame => {
+            meta::GameMode::WonGame => {
                 won_game_keydown_handler(console.key, &mut self.mode);
 
                 console.cls();
@@ -247,7 +239,7 @@ fn in_game_keydown_handler(
     db: &rusqlite::Connection,
     keycode: Option<VirtualKeyCode>,
     player: entity::Entity,
-) -> rusqlite::Result<Option<GameMode>> {
+) -> rusqlite::Result<Option<meta::GameMode>> {
     if component::player::outstanding_turns(db)? > 0 {
         return Ok(None);
     }
@@ -271,7 +263,7 @@ fn in_game_keydown_handler(
         Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
             let new_level = system::follow_transition(db)?;
             if new_level == Some(game_object::WIN_LEVEL.to_string()) {
-                return Ok(Some(GameMode::WonGame));
+                return Ok(Some(meta::GameMode::WonGame));
             }
         }
         _ => {}
@@ -279,8 +271,8 @@ fn in_game_keydown_handler(
     Ok(None)
 }
 
-fn won_game_keydown_handler(keycode: Option<VirtualKeyCode>, mode: &mut GameMode) {
+fn won_game_keydown_handler(keycode: Option<VirtualKeyCode>, mode: &mut meta::GameMode) {
     if keycode.is_some() {
-        *mode = GameMode::MainMenu(main_menu())
+        *mode = meta::GameMode::MainMenu(main_menu())
     }
 }
