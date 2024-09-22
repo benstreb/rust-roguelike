@@ -2,14 +2,13 @@ mod component;
 mod entity;
 mod game_object;
 mod map_gen;
-mod menu;
 mod meta;
 mod profiler;
 mod system;
 
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState, VirtualKeyCode};
 use map_gen::{Generator, Tile};
-use menu::main_menu;
+use meta::main_menu;
 use rand::{Rng, SeedableRng};
 use std::{path::Path, sync::Mutex};
 
@@ -44,7 +43,7 @@ fn main() -> BResult<()> {
         .with_title("Hello Rust World")
         .build()?;
 
-    let main_menu = menu::main_menu();
+    let main_menu = meta::main_menu();
     main_menu.draw(&mut console);
 
     main_loop(
@@ -152,22 +151,22 @@ impl State {
             meta::GameMode::MainMenu(ref mut menu) => {
                 menu.draw(console);
 
-                let selected = menu::keydown_handler(console.key, menu);
+                let selected = meta::keydown_handler(console.key, menu);
                 match selected {
-                    menu::MenuResult::None => {}
-                    menu::MenuResult::Selected(menu::NEW_GAME) => {
+                    meta::MenuResult::None => {}
+                    meta::MenuResult::Selected(meta::NEW_GAME) => {
                         self.mode = new_game(self.rng, meta::SAVE_FILE_NAME, console)?;
                     }
-                    menu::MenuResult::Selected(menu::LOAD_GAME) => {
+                    meta::MenuResult::Selected(meta::LOAD_GAME) => {
                         self.mode = load_game(self.rng, meta::SAVE_FILE_NAME, console)?;
                     }
-                    menu::MenuResult::Selected(selected) => {
+                    meta::MenuResult::Selected(selected) => {
                         println!(
                             "You selected {}. This is just for testing and doesn't do anything",
                             selected
                         )
                     }
-                    menu::MenuResult::Back => {
+                    meta::MenuResult::Back => {
                         console.quit();
                     }
                 }
