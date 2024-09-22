@@ -63,12 +63,13 @@ struct State {
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
 }
 
-fn new_game(
+fn new_game<P: AsRef<Path>>(
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    path: P,
     console: &mut BTerm,
 ) -> BResult<meta::GameMode> {
-    std::fs::remove_file("game.db")?;
-    let db = open_db("game.db", rng)?;
+    std::fs::remove_file(&path)?;
+    let db = open_db(path, rng)?;
 
     db.execute_batch("BEGIN TRANSACTION")?;
     entity::create_table(&db)?;
@@ -129,11 +130,12 @@ fn new_game(
     Ok(meta::GameMode::InGame { db, player })
 }
 
-fn load_game(
+fn load_game<P: AsRef<Path>>(
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    path: P,
     console: &mut BTerm,
 ) -> BResult<meta::GameMode> {
-    let db = open_db("game.db", rng)?;
+    let db = open_db(path, rng)?;
     let player = entity::load_player(&db)?;
     let turn = component::player::turns_passed(&db)?;
     draw_screen(&db, console, turn)?;
@@ -151,10 +153,10 @@ impl State {
                 match selected {
                     menu::MenuResult::None => {}
                     menu::MenuResult::Selected(menu::NEW_GAME) => {
-                        self.mode = new_game(self.rng, console)?;
+                        self.mode = new_game(self.rng, meta::SAVE_FILE_NAME, console)?;
                     }
                     menu::MenuResult::Selected(menu::LOAD_GAME) => {
-                        self.mode = load_game(self.rng, console)?;
+                        self.mode = load_game(self.rng, meta::SAVE_FILE_NAME, console)?;
                     }
                     menu::MenuResult::Selected(selected) => {
                         println!(
