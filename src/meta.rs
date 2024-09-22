@@ -1,3 +1,5 @@
+use std::sync::{Arc, LazyLock};
+
 use crate::{entity, game_object};
 
 use bracket_lib::terminal::{BTerm, VirtualKeyCode};
@@ -34,11 +36,29 @@ pub fn draw_actors(db: &rusqlite::Connection, console: &mut BTerm) -> Result<(),
     Ok(())
 }
 
-#[derive(Debug)]
+pub fn draw_menu(menu: &Menu, console: &mut BTerm) -> () {
+    for (i, item) in menu.items.iter().enumerate() {
+        let color: game_object::MenuColor;
+        if i == menu.selected {
+            color = game_object::MENU_COLOR_SELECTED;
+        } else {
+            color = game_object::MENU_COLOR_UNSELECTED;
+        }
+        console.print_color(
+            menu.top_left.x,
+            menu.top_left.y + i as i64,
+            color.fg,
+            color.bg,
+            item,
+        )
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct Menu {
     top_left: game_object::Point,
     selected: usize,
-    items: Vec<String>,
+    items: Arc<Vec<String>>,
 }
 
 pub enum MenuResult<'a> {
@@ -69,36 +89,21 @@ pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) 
 }
 
 pub fn main_menu() -> Menu {
-    Menu {
-        top_left: game_object::Point { x: 0, y: 0 },
-        selected: 0,
-        items: vec![
+    static MAIN_MENU_ITEMS: LazyLock<Arc<Vec<String>>> = LazyLock::new(|| {
+        Arc::new(vec![
             NEW_GAME.to_string(),
             LOAD_GAME.to_string(),
             "Placeholder 2".to_string(),
-        ],
+        ])
+    });
+    Menu {
+        top_left: game_object::Point { x: 0, y: 0 },
+        selected: 0,
+        items: MAIN_MENU_ITEMS.clone(),
     }
 }
 
 impl Menu {
-    pub fn draw(&self, console: &mut BTerm) -> () {
-        for (i, item) in self.items.iter().enumerate() {
-            let color: game_object::MenuColor;
-            if i == self.selected {
-                color = game_object::MENU_COLOR_SELECTED;
-            } else {
-                color = game_object::MENU_COLOR_UNSELECTED;
-            }
-            console.print_color(
-                self.top_left.x,
-                self.top_left.y + i as i64,
-                color.fg,
-                color.bg,
-                item,
-            )
-        }
-    }
-
     pub fn add(&mut self, i: i64) {
         self.selected = (self.selected as i64 + i).rem_euclid(self.items.len() as i64) as usize
     }

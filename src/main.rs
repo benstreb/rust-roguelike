@@ -44,7 +44,7 @@ fn main() -> BResult<()> {
         .build()?;
 
     let main_menu = meta::main_menu();
-    main_menu.draw(&mut console);
+    meta::draw_menu(&main_menu, &mut console);
 
     main_loop(
         console,
@@ -149,7 +149,7 @@ impl State {
         // Game loop.
         match self.mode {
             meta::GameMode::MainMenu(ref mut menu) => {
-                menu.draw(console);
+                meta::draw_menu(menu, console);
 
                 let selected = meta::keydown_handler(console.key, menu);
                 match selected {
