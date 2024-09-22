@@ -235,7 +235,7 @@ fn open_db<P: AsRef<Path>>(
 
 fn draw_screen(db: &rusqlite::Connection, console: &mut BTerm, turn: i64) -> BResult<()> {
     console.cls();
-    system::draw_actors(db, console)?;
+    meta::draw_actors(db, console)?;
     console.print(0, 0, turn.to_string());
     Ok(())
 }

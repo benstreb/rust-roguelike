@@ -44,6 +44,7 @@ pub const ENEMY_COLOR: Color = Color::from_u8s((255, 255, 255));
 pub const PLAYER_COLOR: Color = Color::from_u8s((255, 255, 255));
 pub const WALL_COLOR: Color = Color::from_u8s((255, 255, 255));
 pub const STAIR_COLOR: Color = Color::from_u8s((255, 255, 255));
+pub const BACKGROUND_COLOR: Color = Color::from_u8s((0, 0, 0));
 
 #[derive(Debug)]
 pub struct MenuColor {

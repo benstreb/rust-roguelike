@@ -1,10 +1,8 @@
 use crate::game_object::{CONSOLE_HEIGHT, CONSOLE_WIDTH};
 use crate::{component, entity, game_object};
 
-use bracket_lib::color;
 use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point as BPoint};
 use bracket_lib::prelude::SmallVec;
-use bracket_lib::terminal::BTerm;
 use rusqlite::{named_params, OptionalExtension};
 
 pub fn move_actors(db: &rusqlite::Connection) -> rusqlite::Result<()> {
@@ -45,23 +43,6 @@ pub fn follow_transition(db: &rusqlite::Connection) -> rusqlite::Result<Option<S
         |row| row.get::<usize, String>(0),
     )
     .optional()
-}
-
-pub fn draw_actors(db: &rusqlite::Connection, console: &mut BTerm) -> Result<(), rusqlite::Error> {
-    let mut conn = db.prepare("SELECT tile, x, y, r, g, b FROM Actor ORDER BY plane DESC")?;
-    for row in conn.query_map((), |row| {
-        let x: i64 = row.get("x")?;
-        let y: i64 = row.get("y")?;
-        let r: u8 = row.get("r")?;
-        let g: u8 = row.get("g")?;
-        let b: u8 = row.get("b")?;
-        let tile: String = row.get("tile")?;
-        Ok((x, y, bracket_lib::color::RGB::from_u8(r, g, b), tile))
-    })? {
-        let (x, y, foreground, tile) = row?;
-        console.print_color(x, y, foreground, color::BLACK, tile);
-    }
-    Ok(())
 }
 
 struct RowMap(Vec<(bool, i64, i64)>);
