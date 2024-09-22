@@ -44,8 +44,17 @@ pub mod player {
     pub fn pass_time(db: &rusqlite::Connection, turns: i64) -> rusqlite::Result<()> {
         db.execute(
             "UPDATE Player
-                SET turn = turn + min(outstanding_turns, :turns),
-                    outstanding_turns = outstanding_turns - min(outstanding_turns, :turns)",
+                SET turn = turn + :turns,
+                    outstanding_turns = max(outstanding_turns - :turns, 0)",
+            named_params! {":turns": turns},
+        )?;
+        Ok(())
+    }
+
+    pub fn schedule_time(db: &rusqlite::Connection, turns: i64) -> rusqlite::Result<()> {
+        db.execute(
+            "UPDATE Player
+                SET outstanding_turns =outstanding_turns + :turns",
             named_params! {":turns": turns},
         )?;
         Ok(())

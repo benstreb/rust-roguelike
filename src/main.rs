@@ -248,19 +248,19 @@ fn in_game_keydown_handler(
     match keycode {
         Some(VirtualKeyCode::Left) => {
             component::velocity::set(db, player, -1, 0)?;
-            component::player::pass_time(db, -1)?;
+            component::player::schedule_time(db, 1)?;
         }
         Some(VirtualKeyCode::Right) => {
             component::velocity::set(db, player, 1, 0)?;
-            component::player::pass_time(db, -1)?;
+            component::player::schedule_time(db, 1)?;
         }
         Some(VirtualKeyCode::Up) => {
             component::velocity::set(db, player, 0, -1)?;
-            component::player::pass_time(db, -1)?;
+            component::player::schedule_time(db, 1)?;
         }
         Some(VirtualKeyCode::Down) => {
             component::velocity::set(db, player, 0, 1)?;
-            component::player::pass_time(db, -1)?;
+            component::player::schedule_time(db, 1)?;
         }
         Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
             let new_level = system::follow_transition(db)?;
