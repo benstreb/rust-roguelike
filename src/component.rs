@@ -80,6 +80,15 @@ pub mod actor {
 
     use super::*;
 
+    #[derive(Debug)]
+    pub struct Actor {
+        pub entity: entity::Entity,
+        pub tile: String,
+        pub pos: game_object::Point,
+        pub color: game_object::Color,
+        pub plane: game_object::Plane,
+    }
+
     pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         db.execute_batch(
             "
@@ -101,19 +110,21 @@ pub mod actor {
         )
     }
 
-    pub fn set(
-        db: &rusqlite::Connection,
-        entity: entity::Entity,
-        tile: &str,
-        pos: game_object::Point,
-        color: game_object::Color,
-        plane: game_object::Plane,
-    ) -> rusqlite::Result<()> {
+    pub fn set(db: &rusqlite::Connection, actor: Actor) -> rusqlite::Result<()> {
         db.execute(
             "INSERT INTO Actor (entity, tile, x, y, r, g, b, plane)
             VALUES (:entity, :tile, :x, :y, :r, :g, :b, :plane)
             ON CONFLICT (entity) DO UPDATE SET tile = excluded.tile, x = excluded.x, y = excluded.y, plane = excluded.plane",
-            named_params![":entity": entity, ":tile": tile, ":x": pos.x, ":y": pos.y, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
+            named_params![
+                ":entity": actor.entity,
+                ":tile": actor.tile,
+                ":x": actor.pos.x,
+                ":y": actor.pos.y,
+                ":r": actor.color.r,
+                ":g": actor.color.g,
+                ":b": actor.color.b,
+                ":plane": actor.plane,
+            ],
         )?;
         Ok(())
     }

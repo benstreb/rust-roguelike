@@ -94,7 +94,16 @@ pub fn init_player(db: &rusqlite::Connection) -> rusqlite::Result<entity::Entity
 
 pub fn init_floor(db: &rusqlite::Connection, pos: Point) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(db, panel, ".", pos, GROUND_COLOR.into(), Plane::Ground)?;
+    component::actor::set(
+        db,
+        component::actor::Actor {
+            entity: panel,
+            tile: ".".into(),
+            pos,
+            color: GROUND_COLOR,
+            plane: Plane::Ground,
+        },
+    )?;
     component::collision::set(db, panel, true, false, false)?;
     Ok(panel)
 }
@@ -105,7 +114,16 @@ pub fn init_wall(
     pos: Point,
 ) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(db, panel, tile, pos, WALL_COLOR.into(), Plane::Wall)?;
+    component::actor::set(
+        db,
+        component::actor::Actor {
+            entity: panel,
+            tile: tile.into(),
+            pos,
+            color: WALL_COLOR,
+            plane: Plane::Wall,
+        },
+    )?;
     component::collision::set(db, panel, true, true, false)?;
     Ok(panel)
 }

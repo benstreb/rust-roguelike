@@ -101,11 +101,13 @@ fn new_game<P: AsRef<Path>>(
             let down_stairs = entity::create(&db)?;
             component::actor::set(
                 &db,
-                down_stairs,
-                ">",
-                pos,
-                game_object::PLAYER_COLOR,
-                game_object::Plane::Objects,
+                component::actor::Actor {
+                    entity: down_stairs,
+                    tile: ">".into(),
+                    pos,
+                    color: game_object::PLAYER_COLOR,
+                    plane: game_object::Plane::Objects,
+                },
             )?;
             component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
         } else if tile == Tile::UpStairs {
@@ -113,11 +115,13 @@ fn new_game<P: AsRef<Path>>(
             // Player spawns where the up staircase would be
             component::actor::set(
                 &db,
-                player,
-                "@",
-                pos,
-                game_object::STAIR_COLOR,
-                game_object::Plane::Player,
+                component::actor::Actor {
+                    entity: player,
+                    tile: "@".into(),
+                    pos,
+                    color: game_object::STAIR_COLOR,
+                    plane: game_object::Plane::Player,
+                },
             )?;
         }
     }
