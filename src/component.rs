@@ -88,9 +88,9 @@ pub mod actor {
                 tile TEXT,
                 x INTEGER,
                 y INTEGER,
-                r FLOAT,
-                g FLOAT,
-                B FLOAT,
+                r INTEGER,
+                g INTEGER,
+                B INTEGER,
                 plane INTEGER,
                 FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
             );
@@ -107,7 +107,7 @@ pub mod actor {
         tile: &str,
         x: i64,
         y: i64,
-        color: bracket_lib::terminal::RGB,
+        color: game_object::Color,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
         db.execute(
@@ -123,7 +123,7 @@ pub mod actor {
         db: &rusqlite::Connection,
         entity: entity::Entity,
         tile: &str,
-        color: bracket_lib::terminal::RGB,
+        color: game_object::Color,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
         db.execute(

@@ -52,11 +52,11 @@ pub fn draw_actors(db: &rusqlite::Connection, console: &mut BTerm) -> Result<(),
     for row in conn.query_map((), |row| {
         let x: i64 = row.get("x")?;
         let y: i64 = row.get("y")?;
-        let r: f32 = row.get("r")?;
-        let g: f32 = row.get("g")?;
-        let b: f32 = row.get("b")?;
+        let r: u8 = row.get("r")?;
+        let g: u8 = row.get("g")?;
+        let b: u8 = row.get("b")?;
         let tile: String = row.get("tile")?;
-        Ok((x, y, bracket_lib::color::RGB::from_f32(r, g, b), tile))
+        Ok((x, y, bracket_lib::color::RGB::from_u8(r, g, b), tile))
     })? {
         let (x, y, foreground, tile) = row?;
         console.print_color(x, y, foreground, color::BLACK, tile);

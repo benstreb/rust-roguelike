@@ -104,7 +104,7 @@ fn new_game<P: AsRef<Path>>(
                 ">",
                 x,
                 y,
-                game_object::PLAYER_COLOR.into(),
+                game_object::PLAYER_COLOR,
                 game_object::Plane::Objects,
             )?;
             component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
@@ -117,7 +117,7 @@ fn new_game<P: AsRef<Path>>(
                 "@",
                 x,
                 y,
-                game_object::STAIR_COLOR.into(),
+                game_object::STAIR_COLOR,
                 game_object::Plane::Player,
             )?;
         }

@@ -7,27 +7,52 @@ pub const CONSOLE_HEIGHT: i64 = 25;
 
 pub const WIN_LEVEL: &str = "win";
 
-pub const GROUND_COLOR: (u8, u8, u8) = (80, 80, 80);
-pub const PARTICLE_COLOR: (u8, u8, u8) = (200, 200, 200);
-pub const ENEMY_COLOR: (u8, u8, u8) = (255, 255, 255);
-pub const PLAYER_COLOR: (u8, u8, u8) = (255, 255, 255);
-pub const WALL_COLOR: (u8, u8, u8) = (255, 255, 255);
-pub const STAIR_COLOR: (u8, u8, u8) = (255, 255, 255);
+#[derive(Debug, PartialEq, Eq)]
+pub struct Color {
+    pub r: u8,
+    pub g: u8,
+    pub b: u8,
+}
+
+impl Color {
+    const fn from_u8s(c: (u8, u8, u8)) -> Color {
+        let (r, g, b) = c;
+        Color { r, g, b }
+    }
+}
+
+impl From<Color> for color::RGBA {
+    fn from(value: Color) -> Self {
+        color::RGBA {
+            r: value.r as f32 / 255.0,
+            g: value.r as f32 / 255.0,
+            b: value.r as f32 / 255.0,
+            a: 1.0,
+        }
+    }
+}
+
+pub const GROUND_COLOR: Color = Color::from_u8s((80, 80, 80));
+pub const PARTICLE_COLOR: Color = Color::from_u8s((200, 200, 200));
+pub const ENEMY_COLOR: Color = Color::from_u8s((255, 255, 255));
+pub const PLAYER_COLOR: Color = Color::from_u8s((255, 255, 255));
+pub const WALL_COLOR: Color = Color::from_u8s((255, 255, 255));
+pub const STAIR_COLOR: Color = Color::from_u8s((255, 255, 255));
 
 #[derive(Debug)]
 pub struct MenuColor {
-    pub fg: (u8, u8, u8),
-    pub bg: (u8, u8, u8),
+    pub fg: Color,
+    pub bg: Color,
 }
 
 pub const MENU_COLOR_UNSELECTED: MenuColor = MenuColor {
-    fg: color::WHITE,
-    bg: color::BLACK,
+    fg: Color::from_u8s(color::WHITE),
+    bg: Color::from_u8s(color::BLACK),
 };
 
 pub const MENU_COLOR_SELECTED: MenuColor = MenuColor {
-    fg: color::BLACK,
-    bg: color::WHITE,
+    fg: Color::from_u8s(color::BLACK),
+    bg: Color::from_u8s(color::WHITE),
 };
 
 #[derive(Clone, Copy, Debug, num_enum::TryFromPrimitive)]
