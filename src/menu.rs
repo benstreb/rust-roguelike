@@ -2,7 +2,13 @@ use bracket_lib::terminal::{BTerm, VirtualKeyCode};
 
 use crate::game_object;
 
-pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) -> Option<&'a str> {
+pub enum MenuResult<'a> {
+    None,
+    Selected(&'a str),
+    Back,
+}
+
+pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) -> MenuResult<'a> {
     match keycode {
         Some(VirtualKeyCode::Left) | Some(VirtualKeyCode::Up) => {
             menu.add(-1);
@@ -11,11 +17,14 @@ pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) 
             menu.add(1);
         }
         Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
-            return Some(&menu.items[menu.selected]);
+            return MenuResult::Selected(&menu.items[menu.selected]);
+        }
+        Some(VirtualKeyCode::Escape) => {
+            return MenuResult::Back;
         }
         _ => {}
     };
-    None
+    MenuResult::None
 }
 
 #[derive(Debug)]
@@ -26,8 +35,8 @@ pub struct Menu {
     items: Vec<String>,
 }
 
-const NEW_GAME: &str = "New Game";
-const LOAD_GAME: &str = "Load Game";
+pub const NEW_GAME: &str = "New Game";
+pub const LOAD_GAME: &str = "Load Game";
 
 pub fn main_menu() -> Menu {
     Menu {

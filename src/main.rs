@@ -157,18 +157,21 @@ impl State {
 
                 let selected = menu::keydown_handler(console.key, menu);
                 match selected {
-                    None => {}
-                    Some("New Game") => {
+                    menu::MenuResult::None => {}
+                    menu::MenuResult::Selected(menu::NEW_GAME) => {
                         self.mode = GameMode::new_game(self.rng, console)?;
                     }
-                    Some("Load Game") => {
+                    menu::MenuResult::Selected(menu::LOAD_GAME) => {
                         self.mode = GameMode::load_game(self.rng, console)?;
                     }
-                    Some(selected) => {
+                    menu::MenuResult::Selected(selected) => {
                         println!(
                             "You selected {}. This is just for testing and doesn't do anything",
                             selected
                         )
+                    }
+                    menu::MenuResult::Back => {
+                        console.quit();
                     }
                 }
             }
