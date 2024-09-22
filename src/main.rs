@@ -104,12 +104,28 @@ impl GameMode {
             } else if tile == Tile::DownStairs {
                 game_object::init_floor(&db, x, y)?;
                 let down_stairs = entity::create(&db)?;
-                component::actor::set(&db, down_stairs, ">", x, y, game_object::Plane::Objects)?;
+                component::actor::set(
+                    &db,
+                    down_stairs,
+                    ">",
+                    x,
+                    y,
+                    game_object::PLAYER_COLOR.into(),
+                    game_object::Plane::Objects,
+                )?;
                 component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
             } else if tile == Tile::UpStairs {
                 game_object::init_floor(&db, x, y)?;
                 // Player spawns where the up staircase would be
-                component::actor::set(&db, player, "@", x, y, game_object::Plane::Player)?;
+                component::actor::set(
+                    &db,
+                    player,
+                    "@",
+                    x,
+                    y,
+                    game_object::STAIR_COLOR.into(),
+                    game_object::Plane::Player,
+                )?;
             }
         }
 

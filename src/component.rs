@@ -67,6 +67,8 @@ pub mod player {
 }
 
 pub mod actor {
+    use rusqlite::named_params;
+
     use super::*;
 
     pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
@@ -77,6 +79,9 @@ pub mod actor {
                 tile TEXT,
                 x INTEGER,
                 y INTEGER,
+                r FLOAT,
+                g FLOAT,
+                B FLOAT,
                 plane INTEGER,
                 FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
             );
@@ -93,13 +98,14 @@ pub mod actor {
         tile: &str,
         x: i64,
         y: i64,
+        color: bracket_lib::terminal::RGB,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
         db.execute(
-            "INSERT INTO Actor (entity, tile, x, y, plane)
-            VALUES (?, ?, ?, ?, ?)
+            "INSERT INTO Actor (entity, tile, x, y, r, g, b, plane)
+            VALUES (:entity, :tile, :x, :y, :r, :g, :b, :plane)
             ON CONFLICT (entity) DO UPDATE SET tile = excluded.tile, x = excluded.x, y = excluded.y, plane = excluded.plane",
-            params![entity, tile, x, y, plane],
+            named_params![":entity": entity, ":tile": tile, ":x": x, ":y": y, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
         )?;
         Ok(())
     }
@@ -108,16 +114,17 @@ pub mod actor {
         db: &rusqlite::Connection,
         entity: entity::Entity,
         tile: &str,
+        color: bracket_lib::terminal::RGB,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
         db.execute(
-            "INSERT INTO Actor (entity, tile, x, y, plane)
-            SELECT ?, ?, x, y, ?
+            "INSERT INTO Actor (entity, tile, x, y, r, g, b, plane)
+            SELECT :entity, :tile, x, y, :r, :g, :b, :plane
             FROM Actor
             WHERE Actor.entity IN (SELECT entity FROM PassableTiles)
             ORDER BY RANDOM()
             LIMIT 1",
-            params![entity, tile, plane],
+            named_params![":entity": entity, ":tile": tile, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
         )?;
         Ok(())
     }

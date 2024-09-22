@@ -7,6 +7,13 @@ pub const CONSOLE_HEIGHT: i64 = 25;
 
 pub const WIN_LEVEL: &str = "win";
 
+pub const GROUND_COLOR: (u8, u8, u8) = (80, 80, 80);
+pub const PARTICLE_COLOR: (u8, u8, u8) = (200, 200, 200);
+pub const ENEMY_COLOR: (u8, u8, u8) = (255, 255, 255);
+pub const PLAYER_COLOR: (u8, u8, u8) = (255, 255, 255);
+pub const WALL_COLOR: (u8, u8, u8) = (255, 255, 255);
+pub const STAIR_COLOR: (u8, u8, u8) = (255, 255, 255);
+
 #[derive(Debug)]
 pub struct MenuColor {
     pub fg: (u8, u8, u8),
@@ -56,7 +63,7 @@ pub fn init_player(db: &rusqlite::Connection) -> rusqlite::Result<entity::Entity
 
 pub fn init_floor(db: &rusqlite::Connection, x: i64, y: i64) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(db, panel, ".", x, y, Plane::Ground)?;
+    component::actor::set(db, panel, ".", x, y, GROUND_COLOR.into(), Plane::Ground)?;
     component::collision::set(db, panel, true, false, false)?;
     Ok(panel)
 }
@@ -68,14 +75,20 @@ pub fn init_wall(
     y: i64,
 ) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(db, panel, tile, x, y, Plane::Wall)?;
+    component::actor::set(db, panel, tile, x, y, WALL_COLOR.into(), Plane::Wall)?;
     component::collision::set(db, panel, true, true, false)?;
     Ok(panel)
 }
 
 pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
     let entity = entity::create(db)?;
-    component::actor::set_on_random_empty_ground(db, entity, "*", Plane::Particles)?;
+    component::actor::set_on_random_empty_ground(
+        db,
+        entity,
+        "*",
+        PARTICLE_COLOR.into(),
+        Plane::Particles,
+    )?;
     component::velocity::set_random(db, entity, -1..=1)?;
     component::health::set(db, entity, lifespan, lifespan, -1)?;
     component::collision::set(db, entity, false, false, true)?;
@@ -84,7 +97,13 @@ pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite:
 
 pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
     let entity = entity::create(db).unwrap();
-    component::actor::set_on_random_empty_ground(db, entity, "x", Plane::Enemies)?;
+    component::actor::set_on_random_empty_ground(
+        db,
+        entity,
+        "x",
+        ENEMY_COLOR.into(),
+        Plane::Enemies,
+    )?;
     component::velocity::set(db, entity, 0, 0)?;
     component::health::set(db, entity, lifespan, lifespan, -1)?;
     component::collision::set(db, entity, false, true, false)?;
