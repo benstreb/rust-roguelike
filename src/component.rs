@@ -105,8 +105,7 @@ pub mod actor {
         db: &rusqlite::Connection,
         entity: entity::Entity,
         tile: &str,
-        x: i64,
-        y: i64,
+        pos: game_object::Point,
         color: game_object::Color,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
@@ -114,7 +113,7 @@ pub mod actor {
             "INSERT INTO Actor (entity, tile, x, y, r, g, b, plane)
             VALUES (:entity, :tile, :x, :y, :r, :g, :b, :plane)
             ON CONFLICT (entity) DO UPDATE SET tile = excluded.tile, x = excluded.x, y = excluded.y, plane = excluded.plane",
-            named_params![":entity": entity, ":tile": tile, ":x": x, ":y": y, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
+            named_params![":entity": entity, ":tile": tile, ":x": pos.x, ":y": pos.y, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
         )?;
         Ok(())
     }

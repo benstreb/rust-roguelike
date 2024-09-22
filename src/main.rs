@@ -86,37 +86,36 @@ fn new_game<P: AsRef<Path>>(
 
     for (tile, x, y) in initial_dungeon.iter() {
         let y = y + 1; // top row is reserved for diagnostics
+        let pos = game_object::Point { x, y };
 
         if tile == Tile::Unused {
             continue;
         } else if tile == Tile::Floor || tile == Tile::Corridor {
-            game_object::init_floor(&db, x, y)?;
+            game_object::init_floor(&db, pos)?;
         } else if tile == Tile::Wall {
-            game_object::init_wall(&db, "#", x, y)?;
+            game_object::init_wall(&db, "#", pos)?;
         } else if tile == Tile::ClosedDoor || tile == Tile::OpenDoor {
-            game_object::init_floor(&db, x, y)?; // doors aren't supported at this time
+            game_object::init_floor(&db, pos)?; // doors aren't supported at this time
         } else if tile == Tile::DownStairs {
-            game_object::init_floor(&db, x, y)?;
+            game_object::init_floor(&db, pos)?;
             let down_stairs = entity::create(&db)?;
             component::actor::set(
                 &db,
                 down_stairs,
                 ">",
-                x,
-                y,
+                pos,
                 game_object::PLAYER_COLOR,
                 game_object::Plane::Objects,
             )?;
             component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
         } else if tile == Tile::UpStairs {
-            game_object::init_floor(&db, x, y)?;
+            game_object::init_floor(&db, pos)?;
             // Player spawns where the up staircase would be
             component::actor::set(
                 &db,
                 player,
                 "@",
-                x,
-                y,
+                pos,
                 game_object::STAIR_COLOR,
                 game_object::Plane::Player,
             )?;

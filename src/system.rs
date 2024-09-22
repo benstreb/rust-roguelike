@@ -2,7 +2,7 @@ use crate::game_object::{CONSOLE_HEIGHT, CONSOLE_WIDTH};
 use crate::{component, entity, game_object};
 
 use bracket_lib::color;
-use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point};
+use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point as BPoint};
 use bracket_lib::prelude::SmallVec;
 use bracket_lib::terminal::BTerm;
 use rusqlite::{named_params, OptionalExtension};
@@ -66,7 +66,7 @@ pub fn draw_actors(db: &rusqlite::Connection, console: &mut BTerm) -> Result<(),
 
 struct RowMap(Vec<(bool, i64, i64)>);
 impl RowMap {
-    fn valid_exit(&self, location: Point, offset: Point) -> Option<usize> {
+    fn valid_exit(&self, location: BPoint, offset: BPoint) -> Option<usize> {
         let destination = location + offset;
         if destination.x < 0
             || destination.x as i64 >= game_object::CONSOLE_WIDTH
@@ -84,8 +84,8 @@ impl RowMap {
 }
 
 impl Algorithm2D for RowMap {
-    fn dimensions(&self) -> Point {
-        Point::new(game_object::CONSOLE_WIDTH, game_object::CONSOLE_HEIGHT)
+    fn dimensions(&self) -> BPoint {
+        BPoint::new(game_object::CONSOLE_WIDTH, game_object::CONSOLE_HEIGHT)
     }
 }
 
@@ -98,16 +98,16 @@ impl BaseMap for RowMap {
         let mut exits = SmallVec::new();
         let location = self.index_to_point2d(idx);
 
-        if let Some(idx) = self.valid_exit(location, Point::new(-1, 0)) {
+        if let Some(idx) = self.valid_exit(location, BPoint::new(-1, 0)) {
             exits.push((idx, 1.0))
         }
-        if let Some(idx) = self.valid_exit(location, Point::new(1, 0)) {
+        if let Some(idx) = self.valid_exit(location, BPoint::new(1, 0)) {
             exits.push((idx, 1.0))
         }
-        if let Some(idx) = self.valid_exit(location, Point::new(0, -1)) {
+        if let Some(idx) = self.valid_exit(location, BPoint::new(0, -1)) {
             exits.push((idx, 1.0))
         }
-        if let Some(idx) = self.valid_exit(location, Point::new(0, 1)) {
+        if let Some(idx) = self.valid_exit(location, BPoint::new(0, 1)) {
             exits.push((idx, 1.0))
         }
 
@@ -180,7 +180,7 @@ pub fn apply_ai(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     let player_pos = stmt.query_row((), |row| {
         let x: i32 = row.get(0)?;
         let y: i32 = row.get(1)?;
-        Ok(Point::new(x, y))
+        Ok(BPoint::new(x, y))
     })?;
 
     // Query the database for actors with AI targeting the player
@@ -194,7 +194,7 @@ pub fn apply_ai(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         let entity: entity::Entity = row.get(0)?;
         let x: i32 = row.get(1)?;
         let y: i32 = row.get(2)?;
-        Ok((entity, Point::new(x, y)))
+        Ok((entity, BPoint::new(x, y)))
     })?;
 
     // Create a Dijkstra map for pathfinding

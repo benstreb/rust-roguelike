@@ -31,8 +31,7 @@ pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) 
 
 #[derive(Debug)]
 pub struct Menu {
-    top_left_x: i64,
-    top_left_y: i64,
+    top_left: game_object::Point,
     selected: usize,
     items: Vec<String>,
 }
@@ -42,8 +41,7 @@ pub const LOAD_GAME: &str = "Load Game";
 
 pub fn main_menu() -> Menu {
     Menu {
-        top_left_x: 0,
-        top_left_y: 0,
+        top_left: game_object::Point { x: 0, y: 0 },
         selected: 0,
         items: vec![
             NEW_GAME.to_string(),
@@ -63,8 +61,8 @@ impl Menu {
                 color = game_object::MENU_COLOR_UNSELECTED;
             }
             console.print_color(
-                self.top_left_x,
-                self.top_left_y + i as i64,
+                self.top_left.x,
+                self.top_left.y + i as i64,
                 color.fg,
                 color.bg,
                 item,

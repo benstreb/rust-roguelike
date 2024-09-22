@@ -7,6 +7,12 @@ pub const CONSOLE_HEIGHT: i64 = 25;
 
 pub const WIN_LEVEL: &str = "win";
 
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct Point {
+    pub x: i64,
+    pub y: i64,
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Color {
     pub r: u8,
@@ -86,9 +92,9 @@ pub fn init_player(db: &rusqlite::Connection) -> rusqlite::Result<entity::Entity
     Ok(player)
 }
 
-pub fn init_floor(db: &rusqlite::Connection, x: i64, y: i64) -> rusqlite::Result<entity::Entity> {
+pub fn init_floor(db: &rusqlite::Connection, pos: Point) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(db, panel, ".", x, y, GROUND_COLOR.into(), Plane::Ground)?;
+    component::actor::set(db, panel, ".", pos, GROUND_COLOR.into(), Plane::Ground)?;
     component::collision::set(db, panel, true, false, false)?;
     Ok(panel)
 }
@@ -96,11 +102,10 @@ pub fn init_floor(db: &rusqlite::Connection, x: i64, y: i64) -> rusqlite::Result
 pub fn init_wall(
     db: &rusqlite::Connection,
     tile: &str,
-    x: i64,
-    y: i64,
+    pos: Point,
 ) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(db, panel, tile, x, y, WALL_COLOR.into(), Plane::Wall)?;
+    component::actor::set(db, panel, tile, pos, WALL_COLOR.into(), Plane::Wall)?;
     component::collision::set(db, panel, true, true, false)?;
     Ok(panel)
 }
