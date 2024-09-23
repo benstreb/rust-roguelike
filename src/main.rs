@@ -7,7 +7,7 @@ mod meta;
 mod profiler;
 mod system;
 
-use crate::console::BTerm;
+use crate::console::Console;
 use ggez::{conf::WindowMode, ContextBuilder, GameResult};
 use map_gen::{Generator, Tile};
 use rand::{Rng, SeedableRng};
@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
         .build()?;
 
     let main_menu = meta::main_menu();
-    let console = BTerm::new(&mut ctx);
+    let console = Console::new(&mut ctx);
     ggez::event::run(
         ctx,
         event_loop,
@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
 }
 
 struct GgezState {
-    console: BTerm,
+    console: Console,
     state: State,
 }
 
@@ -91,8 +91,8 @@ fn new_game<P: AsRef<Path>>(
     component::create_tables(&db)?;
 
     let player = game_object::init_player(&db)?;
-    // let mut dungeon_generator = map_gen::DefaultGenerator::new();
-    let mut dungeon_generator = map_gen::EmptyGenerator;
+    let mut dungeon_generator = map_gen::DefaultGenerator::new();
+    // let mut dungeon_generator = map_gen::EmptyGenerator;
     let initial_dungeon = dungeon_generator.generate(
         &mut rng.lock().unwrap(),
         game_object::CONSOLE_WIDTH,
@@ -174,7 +174,7 @@ impl ggez::event::EventHandler<ggez::GameError> for GgezState {
 }
 
 impl State {
-    fn tick(&mut self, console: &mut BTerm, ctx: &mut ggez::Context) -> anyhow::Result<()> {
+    fn tick(&mut self, console: &mut Console, ctx: &mut ggez::Context) -> anyhow::Result<()> {
         // Game loop.
         let key = console.key(ctx);
         match self.mode {

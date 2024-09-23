@@ -2,7 +2,7 @@ use std::sync::{Arc, LazyLock};
 
 use crate::{component, entity, game_object, system};
 
-use crate::console::{BTerm, VirtualKeyCode};
+use crate::console::{Console, VirtualKeyCode};
 
 pub const SAVE_FILE_NAME: &'static str = "game.db";
 
@@ -78,7 +78,7 @@ impl Renderer {
     pub fn draw(
         &mut self,
         gamemode: &GameMode,
-        console: &mut BTerm,
+        console: &mut Console,
         ctx: &mut ggez::Context,
     ) -> rusqlite::Result<()> {
         if !self.dirty {
@@ -103,7 +103,7 @@ impl Renderer {
         Ok(())
     }
 
-    fn draw_actors(actors: &Vec<component::actor::Actor>, console: &mut BTerm) {
+    fn draw_actors(actors: &Vec<component::actor::Actor>, console: &mut Console) {
         for actor in actors {
             console.print_color(
                 actor.pos.x,
@@ -115,7 +115,7 @@ impl Renderer {
         }
     }
 
-    fn draw_menu(menu: &Menu, console: &mut BTerm) {
+    fn draw_menu(menu: &Menu, console: &mut Console) {
         for (i, item) in menu.items.iter().enumerate() {
             let color: game_object::MenuColor;
             if i == menu.selected {

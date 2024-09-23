@@ -1,6 +1,4 @@
-// Fake BTerm to act as a shim while switching between bracket_lib and ggez
-
-use anyhow::Ok;
+// BTerm shim layer
 use ggez::{glam, graphics, input::keyboard, GameResult};
 
 use crate::game_object::Color;
@@ -9,13 +7,13 @@ pub const PIXEL_SIZE: f32 = 14.;
 
 pub type VirtualKeyCode = keyboard::KeyCode;
 
-pub struct BTerm {
+pub struct Console {
     canvas: Option<graphics::Canvas>,
 }
 
-impl BTerm {
-    pub fn new(_ctx: &mut ggez::Context) -> BTerm {
-        BTerm { canvas: None }
+impl Console {
+    pub fn new(_ctx: &mut ggez::Context) -> Console {
+        Console { canvas: None }
     }
 
     pub fn key(&self, ctx: &ggez::Context) -> Option<VirtualKeyCode> {
