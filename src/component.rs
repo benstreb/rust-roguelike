@@ -69,10 +69,6 @@ pub mod player {
     pub fn turns_passed(db: &rusqlite::Connection) -> rusqlite::Result<i64> {
         db.query_row("SELECT turn FROM Player LIMIT 1", (), |row| row.get(0))
     }
-
-    pub fn level(db: &rusqlite::Connection) -> rusqlite::Result<String> {
-        db.query_row("SELECT level FROM Player LIMIT 1", (), |row| row.get(0))
-    }
 }
 
 pub mod actor {

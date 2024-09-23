@@ -39,7 +39,7 @@ fn main() -> BResult<()> {
     let rng = Box::leak(Box::new(Mutex::new(rand_pcg::Pcg64Mcg::from_entropy())));
 
     // Placeholder for game engine init
-    let mut console = BTermBuilder::simple80x50()
+    let console = BTermBuilder::simple80x50()
         .with_title("Hello Rust World")
         .build()?;
 
