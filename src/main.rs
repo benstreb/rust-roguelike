@@ -1,4 +1,5 @@
 mod component;
+mod console;
 mod entity;
 mod game_object;
 mod map_gen;
@@ -6,10 +7,13 @@ mod meta;
 mod profiler;
 mod system;
 
-use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
+use crate::console::BTerm;
+use ggez::{conf::WindowMode, ContextBuilder, GameResult};
 use map_gen::{Generator, Tile};
 use rand::{Rng, SeedableRng};
 use std::{path::Path, sync::Mutex};
+
+const DESIRED_FPS: u32 = 60;
 
 fn add_pcg_randint_function(
     db: &rusqlite::Connection,
@@ -32,26 +36,40 @@ fn add_pcg_randint_function(
     )
 }
 
-fn main() -> BResult<()> {
+fn main() -> anyhow::Result<()> {
     let turn_profiler = profiler::TurnProfiler::new("./turn_log.csv")?;
 
     let rng = Box::leak(Box::new(Mutex::new(rand_pcg::Pcg64Mcg::from_entropy())));
 
     // Placeholder for game engine init
-    let console = BTermBuilder::simple80x50()
-        .with_title("Hello Rust World")
+    let (mut ctx, event_loop) = ContextBuilder::new("rust_roguelike", "Yours Truly")
+        .window_mode(WindowMode {
+            width: (console::PIXEL_SIZE + 2.) * game_object::CONSOLE_WIDTH as f32,
+            height: (console::PIXEL_SIZE + 2.) * game_object::CONSOLE_HEIGHT as f32,
+            ..Default::default()
+        })
         .build()?;
 
     let main_menu = meta::main_menu();
-    main_loop(
-        console,
-        State {
-            turn_profiler,
-            rng,
-            renderer: meta::Renderer::new(),
-            mode: meta::GameMode::MainMenu(main_menu),
+    let console = BTerm::new(&mut ctx);
+    ggez::event::run(
+        ctx,
+        event_loop,
+        GgezState {
+            console,
+            state: State {
+                turn_profiler,
+                rng,
+                renderer: meta::Renderer::new(),
+                mode: meta::GameMode::MainMenu(main_menu),
+            },
         },
-    )
+    );
+}
+
+struct GgezState {
+    console: BTerm,
+    state: State,
 }
 
 struct State {
@@ -64,7 +82,7 @@ struct State {
 fn new_game<P: AsRef<Path>>(
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
     path: P,
-) -> BResult<meta::GameMode> {
+) -> anyhow::Result<meta::GameMode> {
     std::fs::remove_file(&path)?;
     let db = open_db(path, rng)?;
 
@@ -73,8 +91,8 @@ fn new_game<P: AsRef<Path>>(
     component::create_tables(&db)?;
 
     let player = game_object::init_player(&db)?;
-    let mut dungeon_generator = map_gen::DefaultGenerator::new();
-    // let mut dungeon_generator = map_gen::EmptyGenerator;
+    // let mut dungeon_generator = map_gen::DefaultGenerator::new();
+    let mut dungeon_generator = map_gen::EmptyGenerator;
     let initial_dungeon = dungeon_generator.generate(
         &mut rng.lock().unwrap(),
         game_object::CONSOLE_WIDTH,
@@ -130,18 +148,38 @@ fn new_game<P: AsRef<Path>>(
 fn load_game<P: AsRef<Path>>(
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
     path: P,
-) -> BResult<meta::GameMode> {
+) -> anyhow::Result<meta::GameMode> {
     let db = open_db(path, rng)?;
     let player = entity::load_player(&db)?;
     Ok(meta::GameMode::InGame { db, player })
 }
 
+impl ggez::event::EventHandler<ggez::GameError> for GgezState {
+    fn update(&mut self, ctx: &mut ggez::Context) -> GameResult {
+        while ctx.time.check_update_time(DESIRED_FPS) {
+            self.state
+                .tick(&mut self.console, ctx)
+                .expect("Unexpected error during game tick")
+        }
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult {
+        self.state
+            .renderer
+            .draw(&self.state.mode, &mut self.console, ctx)
+            .expect("Unexpected error during game draw");
+        Ok(())
+    }
+}
+
 impl State {
-    fn tick_inner(&mut self, console: &mut BTerm) -> BResult<()> {
+    fn tick(&mut self, console: &mut BTerm, ctx: &mut ggez::Context) -> anyhow::Result<()> {
         // Game loop.
+        let key = console.key(ctx);
         match self.mode {
             meta::GameMode::MainMenu(ref mut menu) => {
-                let selected = meta::keydown_handler(console.key, menu);
+                let selected = meta::keydown_handler(key, menu);
                 match selected {
                     meta::MenuResult::None => {}
                     meta::MenuResult::Updated => {
@@ -162,12 +200,12 @@ impl State {
                         )
                     }
                     meta::MenuResult::Back => {
-                        console.quit();
+                        console.quit(ctx);
                     }
                 }
             }
             meta::GameMode::InGame { ref db, player } => {
-                let new_mode = meta::in_game_keydown_handler(db, console.key, player)?;
+                let new_mode = meta::in_game_keydown_handler(db, key, player)?;
 
                 if let Some(meta::GameMode::WonGame) = new_mode {
                     self.mode = meta::GameMode::WonGame;
@@ -197,18 +235,11 @@ impl State {
                 }
             }
             meta::GameMode::WonGame => {
-                meta::won_game_keydown_handler(console.key, &mut self.mode);
+                meta::won_game_keydown_handler(key, &mut self.mode);
                 self.renderer.mark_dirty();
             }
         }
-        self.renderer.draw(&self.mode, console)?;
-        BResult::Ok(())
-    }
-}
-
-impl GameState for State {
-    fn tick(&mut self, ctx: &mut BTerm) {
-        self.tick_inner(ctx).expect("Fatal error in game loop.");
+        anyhow::Result::Ok(())
     }
 }
 

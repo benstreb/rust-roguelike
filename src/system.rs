@@ -1,8 +1,7 @@
 use crate::game_object::{CONSOLE_HEIGHT, CONSOLE_WIDTH};
 use crate::{component, entity, game_object};
 
-use bracket_lib::pathfinding::{Algorithm2D, BaseMap, DijkstraMap, Point as BPoint};
-use bracket_lib::prelude::SmallVec;
+use bracket_pathfinding::prelude::{Algorithm2D, BaseMap, DijkstraMap, Point as BPoint, SmallVec};
 use rusqlite::{named_params, OptionalExtension};
 
 pub fn move_actors(db: &rusqlite::Connection) -> rusqlite::Result<()> {

@@ -2,7 +2,7 @@ use std::sync::{Arc, LazyLock};
 
 use crate::{component, entity, game_object, system};
 
-use bracket_lib::terminal::{BTerm, VirtualKeyCode};
+use crate::console::{BTerm, VirtualKeyCode};
 
 pub const SAVE_FILE_NAME: &'static str = "game.db";
 
@@ -75,24 +75,30 @@ impl Renderer {
         self.dirty = true;
     }
 
-    pub fn draw(&mut self, gamemode: &GameMode, console: &mut BTerm) -> rusqlite::Result<()> {
+    pub fn draw(
+        &mut self,
+        gamemode: &GameMode,
+        console: &mut BTerm,
+        ctx: &mut ggez::Context,
+    ) -> rusqlite::Result<()> {
         if !self.dirty {
             return Ok(());
         }
-        console.cls();
+        console.cls(ctx);
         match gamemode {
             GameMode::MainMenu(menu) => Self::draw_menu(menu, console),
             GameMode::InGame { db, .. } => {
                 let visible_actors = component::actor::get_visible(db)?;
                 Self::draw_actors(&visible_actors, console);
                 let turn = component::player::turns_passed(db)?;
-                console.print(0, 0, turn.to_string());
+                console.print(0, 0, &turn.to_string());
             }
             GameMode::WonGame => {
-                console.cls();
+                console.cls(ctx);
                 console.print(1, 1, "You Win");
             }
         }
+        console.finish(ctx).expect("I'm dead!");
         self.dirty = false;
         Ok(())
     }

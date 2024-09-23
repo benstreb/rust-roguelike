@@ -1,5 +1,4 @@
 use crate::{component, entity};
-use bracket_lib::color;
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 
 pub const CONSOLE_WIDTH: i64 = 80;
@@ -27,9 +26,9 @@ impl Color {
     }
 }
 
-impl From<Color> for color::RGBA {
+impl From<Color> for ggez::graphics::Color {
     fn from(value: Color) -> Self {
-        color::RGBA {
+        ggez::graphics::Color {
             r: value.r as f32 / 255.0,
             g: value.r as f32 / 255.0,
             b: value.r as f32 / 255.0,
@@ -53,13 +52,13 @@ pub struct MenuColor {
 }
 
 pub const MENU_COLOR_UNSELECTED: MenuColor = MenuColor {
-    fg: Color::from_u8s(color::WHITE),
-    bg: Color::from_u8s(color::BLACK),
+    fg: Color::from_u8s((255, 255, 255)),
+    bg: Color::from_u8s((0, 0, 0)),
 };
 
 pub const MENU_COLOR_SELECTED: MenuColor = MenuColor {
-    fg: Color::from_u8s(color::BLACK),
-    bg: Color::from_u8s(color::WHITE),
+    fg: Color::from_u8s((0, 0, 0)),
+    bg: Color::from_u8s((255, 255, 255)),
 };
 
 #[derive(Clone, Copy, Debug, num_enum::TryFromPrimitive)]
