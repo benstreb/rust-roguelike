@@ -6,9 +6,8 @@ mod meta;
 mod profiler;
 mod system;
 
-use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState, VirtualKeyCode};
+use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState};
 use map_gen::{Generator, Tile};
-use meta::{main_menu, Renderer};
 use rand::{Rng, SeedableRng};
 use std::{path::Path, sync::Mutex};
 
@@ -49,7 +48,7 @@ fn main() -> BResult<()> {
         State {
             turn_profiler,
             rng,
-            renderer: Renderer::new(),
+            renderer: meta::Renderer::new(),
             mode: meta::GameMode::MainMenu(main_menu),
         },
     )
@@ -168,7 +167,7 @@ impl State {
                 }
             }
             meta::GameMode::InGame { ref db, player } => {
-                let new_mode = in_game_keydown_handler(db, console.key, player)?;
+                let new_mode = meta::in_game_keydown_handler(db, console.key, player)?;
 
                 if let Some(meta::GameMode::WonGame) = new_mode {
                     self.mode = meta::GameMode::WonGame;
@@ -198,7 +197,7 @@ impl State {
                 }
             }
             meta::GameMode::WonGame => {
-                won_game_keydown_handler(console.key, &mut self.mode);
+                meta::won_game_keydown_handler(console.key, &mut self.mode);
                 self.renderer.mark_dirty();
             }
         }
@@ -225,46 +224,4 @@ fn open_db<P: AsRef<Path>>(
     db.execute_batch("PRAGMA foreign_keys = TRUE")?;
 
     Ok(db)
-}
-
-fn in_game_keydown_handler(
-    db: &rusqlite::Connection,
-    keycode: Option<VirtualKeyCode>,
-    player: entity::Entity,
-) -> rusqlite::Result<Option<meta::GameMode>> {
-    if component::player::outstanding_turns(db)? > 0 {
-        return Ok(None);
-    }
-    match keycode {
-        Some(VirtualKeyCode::Left) => {
-            component::velocity::set(db, player, -1, 0)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Right) => {
-            component::velocity::set(db, player, 1, 0)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Up) => {
-            component::velocity::set(db, player, 0, -1)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Down) => {
-            component::velocity::set(db, player, 0, 1)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
-            let new_level = system::follow_transition(db)?;
-            if new_level == Some(game_object::WIN_LEVEL.to_string()) {
-                return Ok(Some(meta::GameMode::WonGame));
-            }
-        }
-        _ => {}
-    };
-    Ok(None)
-}
-
-fn won_game_keydown_handler(keycode: Option<VirtualKeyCode>, mode: &mut meta::GameMode) {
-    if keycode.is_some() {
-        *mode = meta::GameMode::MainMenu(main_menu())
-    }
 }

@@ -1,6 +1,6 @@
 use std::sync::{Arc, LazyLock};
 
-use crate::{component, entity, game_object};
+use crate::{component, entity, game_object, system};
 
 use bracket_lib::terminal::{BTerm, VirtualKeyCode};
 
@@ -17,6 +17,48 @@ pub enum GameMode {
         player: entity::Entity,
     },
     WonGame,
+}
+
+pub fn in_game_keydown_handler(
+    db: &rusqlite::Connection,
+    keycode: Option<VirtualKeyCode>,
+    player: entity::Entity,
+) -> rusqlite::Result<Option<GameMode>> {
+    if component::player::outstanding_turns(db)? > 0 {
+        return Ok(None);
+    }
+    match keycode {
+        Some(VirtualKeyCode::Left) => {
+            component::velocity::set(db, player, -1, 0)?;
+            component::player::schedule_time(db, 1)?;
+        }
+        Some(VirtualKeyCode::Right) => {
+            component::velocity::set(db, player, 1, 0)?;
+            component::player::schedule_time(db, 1)?;
+        }
+        Some(VirtualKeyCode::Up) => {
+            component::velocity::set(db, player, 0, -1)?;
+            component::player::schedule_time(db, 1)?;
+        }
+        Some(VirtualKeyCode::Down) => {
+            component::velocity::set(db, player, 0, 1)?;
+            component::player::schedule_time(db, 1)?;
+        }
+        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
+            let new_level = system::follow_transition(db)?;
+            if new_level == Some(game_object::WIN_LEVEL.to_string()) {
+                return Ok(Some(GameMode::WonGame));
+            }
+        }
+        _ => {}
+    };
+    Ok(None)
+}
+
+pub fn won_game_keydown_handler(keycode: Option<VirtualKeyCode>, mode: &mut GameMode) {
+    if keycode.is_some() {
+        *mode = GameMode::MainMenu(main_menu())
+    }
 }
 
 #[derive(Debug, Default)]
