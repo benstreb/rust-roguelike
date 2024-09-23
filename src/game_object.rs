@@ -13,7 +13,7 @@ pub struct Point {
     pub y: i64,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Color {
     pub r: u8,
     pub g: u8,

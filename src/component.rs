@@ -148,6 +148,35 @@ pub mod actor {
         Ok(())
     }
 
+    pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<Actor>> {
+        let mut query = db.prepare(
+            "
+            SELECT *, min(plane)
+            FROM Actor
+            GROUP BY x, y",
+        )?;
+        let result = query
+            .query_map((), |row| {
+                let entity: entity::Entity = row.get("entity")?;
+                let tile: String = row.get("tile")?;
+                let x: i64 = row.get("x")?;
+                let y: i64 = row.get("y")?;
+                let r: u8 = row.get("r")?;
+                let g: u8 = row.get("g")?;
+                let b: u8 = row.get("b")?;
+                let plane: game_object::Plane = row.get("plane")?;
+                Ok(Actor {
+                    entity,
+                    tile,
+                    pos: game_object::Point { x, y },
+                    color: game_object::Color { r, g, b },
+                    plane,
+                })
+            })?
+            .collect::<rusqlite::Result<Vec<Actor>>>()?;
+        Ok(result)
+    }
+
     pub fn count(db: &rusqlite::Connection) -> rusqlite::Result<i64> {
         db.query_row("SELECT COUNT(*) FROM Actor", (), |row| row.get(0))
     }

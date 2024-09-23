@@ -8,7 +8,7 @@ mod system;
 
 use bracket_lib::prelude::{main_loop, BResult, BTerm, BTermBuilder, GameState, VirtualKeyCode};
 use map_gen::{Generator, Tile};
-use meta::main_menu;
+use meta::{main_menu, Renderer};
 use rand::{Rng, SeedableRng};
 use std::{path::Path, sync::Mutex};
 
@@ -44,13 +44,12 @@ fn main() -> BResult<()> {
         .build()?;
 
     let main_menu = meta::main_menu();
-    meta::draw_menu(&main_menu, &mut console);
-
     main_loop(
         console,
         State {
             turn_profiler,
             rng,
+            renderer: Renderer::new(),
             mode: meta::GameMode::MainMenu(main_menu),
         },
     )
@@ -59,13 +58,13 @@ fn main() -> BResult<()> {
 struct State {
     turn_profiler: profiler::TurnProfiler,
     mode: meta::GameMode,
+    renderer: meta::Renderer,
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
 }
 
 fn new_game<P: AsRef<Path>>(
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
     path: P,
-    console: &mut BTerm,
 ) -> BResult<meta::GameMode> {
     std::fs::remove_file(&path)?;
     let db = open_db(path, rng)?;
@@ -124,9 +123,6 @@ fn new_game<P: AsRef<Path>>(
             )?;
         }
     }
-
-    draw_screen(&db, console, 0)?;
-
     db.execute_batch("COMMIT TRANSACTION")?;
 
     Ok(meta::GameMode::InGame { db, player })
@@ -135,12 +131,9 @@ fn new_game<P: AsRef<Path>>(
 fn load_game<P: AsRef<Path>>(
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
     path: P,
-    console: &mut BTerm,
 ) -> BResult<meta::GameMode> {
     let db = open_db(path, rng)?;
     let player = entity::load_player(&db)?;
-    let turn = component::player::turns_passed(&db)?;
-    draw_screen(&db, console, turn)?;
     Ok(meta::GameMode::InGame { db, player })
 }
 
@@ -149,16 +142,19 @@ impl State {
         // Game loop.
         match self.mode {
             meta::GameMode::MainMenu(ref mut menu) => {
-                meta::draw_menu(menu, console);
-
                 let selected = meta::keydown_handler(console.key, menu);
                 match selected {
                     meta::MenuResult::None => {}
+                    meta::MenuResult::Updated => {
+                        self.renderer.mark_dirty();
+                    }
                     meta::MenuResult::Selected(meta::NEW_GAME) => {
-                        self.mode = new_game(self.rng, meta::SAVE_FILE_NAME, console)?;
+                        self.mode = new_game(self.rng, meta::SAVE_FILE_NAME)?;
+                        self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(meta::LOAD_GAME) => {
-                        self.mode = load_game(self.rng, meta::SAVE_FILE_NAME, console)?;
+                        self.mode = load_game(self.rng, meta::SAVE_FILE_NAME)?;
+                        self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(selected) => {
                         println!(
@@ -176,6 +172,7 @@ impl State {
 
                 if let Some(meta::GameMode::WonGame) = new_mode {
                     self.mode = meta::GameMode::WonGame;
+                    self.renderer.mark_dirty();
                 } else if component::player::outstanding_turns(db)? > 0 {
                     db.execute_batch("BEGIN TRANSACTION")?;
                     let turn_start = self.turn_profiler.start();
@@ -193,21 +190,19 @@ impl State {
                     system::cull_ephemeral(db)?;
                     let turn = component::player::turns_passed(db)?;
 
-                    draw_screen(db, console, turn)?;
-
                     let actor_count = component::actor::count(db)?;
                     db.execute_batch("COMMIT TRANSACTION")?;
 
                     self.turn_profiler.end(turn, turn_start, actor_count)?;
+                    self.renderer.mark_dirty();
                 }
             }
             meta::GameMode::WonGame => {
                 won_game_keydown_handler(console.key, &mut self.mode);
-
-                console.cls();
-                console.print(1, 1, "You Win");
+                self.renderer.mark_dirty();
             }
         }
+        self.renderer.draw(&self.mode, console)?;
         BResult::Ok(())
     }
 }
@@ -230,13 +225,6 @@ fn open_db<P: AsRef<Path>>(
     db.execute_batch("PRAGMA foreign_keys = TRUE")?;
 
     Ok(db)
-}
-
-fn draw_screen(db: &rusqlite::Connection, console: &mut BTerm, turn: i64) -> BResult<()> {
-    console.cls();
-    meta::draw_actors(db, console)?;
-    console.print(0, 0, turn.to_string());
-    Ok(())
 }
 
 fn in_game_keydown_handler(

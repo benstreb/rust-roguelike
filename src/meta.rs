@@ -1,6 +1,6 @@
 use std::sync::{Arc, LazyLock};
 
-use crate::{entity, game_object};
+use crate::{component, entity, game_object};
 
 use bracket_lib::terminal::{BTerm, VirtualKeyCode};
 
@@ -19,38 +19,70 @@ pub enum GameMode {
     WonGame,
 }
 
-pub fn draw_actors(db: &rusqlite::Connection, console: &mut BTerm) -> Result<(), rusqlite::Error> {
-    let mut conn = db.prepare("SELECT tile, x, y, r, g, b FROM Actor ORDER BY plane DESC")?;
-    for row in conn.query_map((), |row| {
-        let x: i64 = row.get("x")?;
-        let y: i64 = row.get("y")?;
-        let r: u8 = row.get("r")?;
-        let g: u8 = row.get("g")?;
-        let b: u8 = row.get("b")?;
-        let tile: String = row.get("tile")?;
-        Ok((x, y, bracket_lib::color::RGB::from_u8(r, g, b), tile))
-    })? {
-        let (x, y, foreground, tile) = row?;
-        console.print_color(x, y, foreground, game_object::BACKGROUND_COLOR, tile);
-    }
-    Ok(())
+#[derive(Debug, Default)]
+pub struct Renderer {
+    dirty: bool,
 }
 
-pub fn draw_menu(menu: &Menu, console: &mut BTerm) -> () {
-    for (i, item) in menu.items.iter().enumerate() {
-        let color: game_object::MenuColor;
-        if i == menu.selected {
-            color = game_object::MENU_COLOR_SELECTED;
-        } else {
-            color = game_object::MENU_COLOR_UNSELECTED;
+impl Renderer {
+    pub fn new() -> Self {
+        Renderer { dirty: true }
+    }
+
+    pub fn mark_dirty(&mut self) {
+        self.dirty = true;
+    }
+
+    pub fn draw(&mut self, gamemode: &GameMode, console: &mut BTerm) -> rusqlite::Result<()> {
+        if !self.dirty {
+            return Ok(());
         }
-        console.print_color(
-            menu.top_left.x,
-            menu.top_left.y + i as i64,
-            color.fg,
-            color.bg,
-            item,
-        )
+        console.cls();
+        match gamemode {
+            GameMode::MainMenu(menu) => Self::draw_menu(menu, console),
+            GameMode::InGame { db, .. } => {
+                let visible_actors = component::actor::get_visible(db)?;
+                Self::draw_actors(&visible_actors, console);
+                let turn = component::player::turns_passed(db)?;
+                console.print(0, 0, turn.to_string());
+            }
+            GameMode::WonGame => {
+                console.cls();
+                console.print(1, 1, "You Win");
+            }
+        }
+        self.dirty = false;
+        Ok(())
+    }
+
+    fn draw_actors(actors: &Vec<component::actor::Actor>, console: &mut BTerm) {
+        for actor in actors {
+            console.print_color(
+                actor.pos.x,
+                actor.pos.y,
+                actor.color,
+                game_object::BACKGROUND_COLOR,
+                &actor.tile,
+            );
+        }
+    }
+
+    fn draw_menu(menu: &Menu, console: &mut BTerm) {
+        for (i, item) in menu.items.iter().enumerate() {
+            let color: game_object::MenuColor;
+            if i == menu.selected {
+                color = game_object::MENU_COLOR_SELECTED;
+            } else {
+                color = game_object::MENU_COLOR_UNSELECTED;
+            }
+            console.print_color(
+                menu.top_left.x,
+                menu.top_left.y + i as i64,
+                color.fg,
+                color.bg,
+                item,
+            )
+        }
     }
 }
 
@@ -63,6 +95,7 @@ pub struct Menu {
 
 pub enum MenuResult<'a> {
     None,
+    Updated,
     Selected(&'a str),
     Back,
 }
@@ -71,21 +104,18 @@ pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) 
     match keycode {
         Some(VirtualKeyCode::Left) | Some(VirtualKeyCode::Up) => {
             menu.add(-1);
+            MenuResult::Updated
         }
         Some(VirtualKeyCode::Right) | Some(VirtualKeyCode::Down) => {
             menu.add(1);
+            MenuResult::Updated
         }
         Some(VirtualKeyCode::Space)
         | Some(VirtualKeyCode::NumpadEnter)
-        | Some(VirtualKeyCode::Return) => {
-            return MenuResult::Selected(&menu.items[menu.selected]);
-        }
-        Some(VirtualKeyCode::Escape) => {
-            return MenuResult::Back;
-        }
-        _ => {}
-    };
-    MenuResult::None
+        | Some(VirtualKeyCode::Return) => MenuResult::Selected(&menu.items[menu.selected]),
+        Some(VirtualKeyCode::Escape) => MenuResult::Back,
+        _ => MenuResult::None,
+    }
 }
 
 pub fn main_menu() -> Menu {
