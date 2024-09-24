@@ -176,10 +176,10 @@ impl ggez::event::EventHandler<ggez::GameError> for GgezState {
 impl State {
     fn tick(&mut self, console: &mut Console, ctx: &mut ggez::Context) -> anyhow::Result<()> {
         // Game loop.
-        let key = console.key(ctx);
+        let keys = console.key_presses(ctx);
         match self.mode {
             meta::GameMode::MainMenu(ref mut menu) => {
-                let selected = meta::keydown_handler(key, menu);
+                let selected = meta::keydown_handler(&keys, menu);
                 match selected {
                     meta::MenuResult::None => {}
                     meta::MenuResult::Updated => {
@@ -205,7 +205,7 @@ impl State {
                 }
             }
             meta::GameMode::InGame { ref db, player } => {
-                let new_mode = meta::in_game_keydown_handler(db, key, player)?;
+                let new_mode = meta::in_game_keydown_handler(db, &keys, player)?;
 
                 if let Some(meta::GameMode::WonGame) = new_mode {
                     self.mode = meta::GameMode::WonGame;
@@ -235,7 +235,7 @@ impl State {
                 }
             }
             meta::GameMode::WonGame => {
-                meta::won_game_keydown_handler(key, &mut self.mode);
+                meta::won_game_keydown_handler(&keys, &mut self.mode);
                 self.renderer.mark_dirty();
             }
         }

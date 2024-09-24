@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 // BTerm shim layer
 use ggez::{glam, graphics, input::keyboard, GameResult};
 
@@ -9,20 +11,25 @@ pub type VirtualKeyCode = keyboard::KeyCode;
 
 pub struct Console {
     canvas: Option<graphics::Canvas>,
+    handled_keys: HashSet<VirtualKeyCode>,
 }
 
 impl Console {
     pub fn new(_ctx: &mut ggez::Context) -> Console {
-        Console { canvas: None }
+        Console {
+            canvas: None,
+            handled_keys: HashSet::new(),
+        }
     }
 
-    pub fn key(&self, ctx: &ggez::Context) -> Option<VirtualKeyCode> {
-        ctx.keyboard
-            .pressed_keys()
-            .into_iter()
-            .take(1)
-            .find(|_| true)
+    pub fn key_presses(&mut self, ctx: &ggez::Context) -> HashSet<VirtualKeyCode> {
+        let keys = ctx.keyboard.pressed_keys();
+        let new_keys = keys
+            .difference(&self.handled_keys)
             .copied()
+            .collect::<HashSet<VirtualKeyCode>>();
+        self.handled_keys = keys.clone();
+        new_keys
     }
 
     pub fn quit(&self, ctx: &mut ggez::Context) {

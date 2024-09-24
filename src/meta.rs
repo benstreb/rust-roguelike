@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 
 use crate::{component, entity, game_object, system};
@@ -21,42 +22,44 @@ pub enum GameMode {
 
 pub fn in_game_keydown_handler(
     db: &rusqlite::Connection,
-    keycode: Option<VirtualKeyCode>,
+    keycodes: &HashSet<VirtualKeyCode>,
     player: entity::Entity,
 ) -> rusqlite::Result<Option<GameMode>> {
     if component::player::outstanding_turns(db)? > 0 {
         return Ok(None);
     }
-    match keycode {
-        Some(VirtualKeyCode::Left) => {
-            component::velocity::set(db, player, -1, 0)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Right) => {
-            component::velocity::set(db, player, 1, 0)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Up) => {
-            component::velocity::set(db, player, 0, -1)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Down) => {
-            component::velocity::set(db, player, 0, 1)?;
-            component::player::schedule_time(db, 1)?;
-        }
-        Some(VirtualKeyCode::Space) | Some(VirtualKeyCode::NumpadEnter) => {
-            let new_level = system::follow_transition(db)?;
-            if new_level == Some(game_object::WIN_LEVEL.to_string()) {
-                return Ok(Some(GameMode::WonGame));
+    for keycode in keycodes {
+        match keycode {
+            VirtualKeyCode::Left => {
+                component::velocity::set(db, player, -1, 0)?;
+                component::player::schedule_time(db, 1)?;
             }
-        }
-        _ => {}
-    };
+            VirtualKeyCode::Right => {
+                component::velocity::set(db, player, 1, 0)?;
+                component::player::schedule_time(db, 1)?;
+            }
+            VirtualKeyCode::Up => {
+                component::velocity::set(db, player, 0, -1)?;
+                component::player::schedule_time(db, 1)?;
+            }
+            VirtualKeyCode::Down => {
+                component::velocity::set(db, player, 0, 1)?;
+                component::player::schedule_time(db, 1)?;
+            }
+            VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter => {
+                let new_level = system::follow_transition(db)?;
+                if new_level == Some(game_object::WIN_LEVEL.to_string()) {
+                    return Ok(Some(GameMode::WonGame));
+                }
+            }
+            _ => {}
+        };
+    }
     Ok(None)
 }
 
-pub fn won_game_keydown_handler(keycode: Option<VirtualKeyCode>, mode: &mut GameMode) {
-    if keycode.is_some() {
+pub fn won_game_keydown_handler(keycode: &HashSet<VirtualKeyCode>, mode: &mut GameMode) {
+    if keycode.len() > 0 {
         *mode = GameMode::MainMenu(main_menu())
     }
 }
@@ -148,22 +151,28 @@ pub enum MenuResult<'a> {
     Back,
 }
 
-pub fn keydown_handler<'a>(keycode: Option<VirtualKeyCode>, menu: &'a mut Menu) -> MenuResult<'a> {
-    match keycode {
-        Some(VirtualKeyCode::Left) | Some(VirtualKeyCode::Up) => {
-            menu.add(-1);
-            MenuResult::Updated
+pub fn keydown_handler<'a>(
+    keycodes: &HashSet<VirtualKeyCode>,
+    menu: &'a mut Menu,
+) -> MenuResult<'a> {
+    for keycode in keycodes {
+        match keycode {
+            VirtualKeyCode::Left | VirtualKeyCode::Up => {
+                menu.add(-1);
+                return MenuResult::Updated;
+            }
+            VirtualKeyCode::Right | VirtualKeyCode::Down => {
+                menu.add(1);
+                return MenuResult::Updated;
+            }
+            VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter | VirtualKeyCode::Return => {
+                return MenuResult::Selected(&menu.items[menu.selected]);
+            }
+            VirtualKeyCode::Escape => return MenuResult::Back,
+            _ => {}
         }
-        Some(VirtualKeyCode::Right) | Some(VirtualKeyCode::Down) => {
-            menu.add(1);
-            MenuResult::Updated
-        }
-        Some(VirtualKeyCode::Space)
-        | Some(VirtualKeyCode::NumpadEnter)
-        | Some(VirtualKeyCode::Return) => MenuResult::Selected(&menu.items[menu.selected]),
-        Some(VirtualKeyCode::Escape) => MenuResult::Back,
-        _ => MenuResult::None,
     }
+    MenuResult::None
 }
 
 pub fn main_menu() -> Menu {
