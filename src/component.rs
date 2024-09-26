@@ -24,6 +24,7 @@ pub mod player {
         db.execute_batch(
             "CREATE TABLE IF NOT EXISTS Player (
                 entity INTEGER UNIQUE NOT NULL,
+                is_creative BOOLEAN,
                 turn INTEGER,
                 outstanding_turns INTEGER,
                 level TEXT,
@@ -32,11 +33,15 @@ pub mod player {
         )
     }
 
-    pub fn set(db: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
+    pub fn set(
+        db: &rusqlite::Connection,
+        entity: entity::Entity,
+        is_creative: bool,
+    ) -> rusqlite::Result<()> {
         db.execute(
-            "INSERT INTO Player (entity, turn, outstanding_turns, level)
-            VALUES (?, 0, 0, '0')",
-            params![entity],
+            "INSERT INTO Player (entity, turn, outstanding_turns, level, is_creative)
+            VALUES (:entity, 0, 0, '0', :is_creative)",
+            named_params! {":entity": entity, ":is_creative": is_creative},
         )?;
         Ok(())
     }
@@ -68,6 +73,12 @@ pub mod player {
 
     pub fn turns_passed(db: &rusqlite::Connection) -> rusqlite::Result<i64> {
         db.query_row("SELECT turn FROM Player LIMIT 1", (), |row| row.get(0))
+    }
+
+    pub fn is_creative(db: &rusqlite::Connection) -> rusqlite::Result<bool> {
+        db.query_row("SELECT is_creative FROM Player LIMIT 1", (), |row| {
+            row.get(0)
+        })
     }
 }
 

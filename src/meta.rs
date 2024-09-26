@@ -9,6 +9,7 @@ pub const SAVE_FILE_NAME: &'static str = "game.db";
 
 pub const NEW_GAME: &str = "New Game";
 pub const LOAD_GAME: &str = "Load Game";
+pub const CREATIVE_MODE: &str = "Creative Mode";
 
 #[derive(Debug)]
 pub enum GameMode {
@@ -16,6 +17,7 @@ pub enum GameMode {
     InGame {
         db: rusqlite::Connection,
         player: entity::Entity,
+        is_creative: bool,
     },
     WonGame,
 }
@@ -178,9 +180,9 @@ pub fn keydown_handler<'a>(
 pub fn main_menu() -> Menu {
     static MAIN_MENU_ITEMS: LazyLock<Arc<Vec<String>>> = LazyLock::new(|| {
         Arc::new(vec![
+            CREATIVE_MODE.to_string(),
             NEW_GAME.to_string(),
             LOAD_GAME.to_string(),
-            "Placeholder 2".to_string(),
         ])
     });
     Menu {

@@ -9,7 +9,7 @@ mod system;
 
 use crate::console::Console;
 use ggez::{conf::WindowMode, ContextBuilder, GameResult};
-use map_gen::{Generator, Tile};
+use map_gen::Tile;
 use rand::{Rng, SeedableRng};
 use std::{path::Path, sync::Mutex};
 
@@ -82,6 +82,8 @@ struct State {
 fn new_game<P: AsRef<Path>>(
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
     path: P,
+    is_creative: bool,
+    mut dungeon_generator: impl map_gen::Generator,
 ) -> anyhow::Result<meta::GameMode> {
     std::fs::remove_file(&path)?;
     let db = open_db(path, rng)?;
@@ -90,9 +92,7 @@ fn new_game<P: AsRef<Path>>(
     entity::create_table(&db)?;
     component::create_tables(&db)?;
 
-    let player = game_object::init_player(&db)?;
-    let mut dungeon_generator = map_gen::DefaultGenerator::new();
-    // let mut dungeon_generator = map_gen::EmptyGenerator;
+    let player = game_object::init_player(&db, is_creative)?;
     let initial_dungeon = dungeon_generator.generate(
         &mut rng.lock().unwrap(),
         game_object::CONSOLE_WIDTH,
@@ -142,7 +142,11 @@ fn new_game<P: AsRef<Path>>(
     }
     db.execute_batch("COMMIT TRANSACTION")?;
 
-    Ok(meta::GameMode::InGame { db, player })
+    Ok(meta::GameMode::InGame {
+        db,
+        player,
+        is_creative,
+    })
 }
 
 fn load_game<P: AsRef<Path>>(
@@ -151,7 +155,12 @@ fn load_game<P: AsRef<Path>>(
 ) -> anyhow::Result<meta::GameMode> {
     let db = open_db(path, rng)?;
     let player = entity::load_player(&db)?;
-    Ok(meta::GameMode::InGame { db, player })
+    let is_creative = component::player::is_creative(&db)?;
+    Ok(meta::GameMode::InGame {
+        db,
+        player,
+        is_creative,
+    })
 }
 
 impl ggez::event::EventHandler<ggez::GameError> for GgezState {
@@ -186,25 +195,40 @@ impl State {
                         self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(meta::NEW_GAME) => {
-                        self.mode = new_game(self.rng, meta::SAVE_FILE_NAME)?;
+                        self.mode = new_game(
+                            self.rng,
+                            meta::SAVE_FILE_NAME,
+                            false,
+                            map_gen::DefaultGenerator::new(),
+                        )?;
                         self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(meta::LOAD_GAME) => {
                         self.mode = load_game(self.rng, meta::SAVE_FILE_NAME)?;
                         self.renderer.mark_dirty();
                     }
+                    meta::MenuResult::Selected(meta::CREATIVE_MODE) => {
+                        self.mode = new_game(
+                            self.rng,
+                            meta::SAVE_FILE_NAME,
+                            true,
+                            map_gen::EmptyGenerator,
+                        )?;
+                        self.renderer.mark_dirty();
+                    }
                     meta::MenuResult::Selected(selected) => {
-                        println!(
-                            "You selected {}. This is just for testing and doesn't do anything",
-                            selected
-                        )
+                        println!("Unexpected menu item '{}'. This is a bug", selected)
                     }
                     meta::MenuResult::Back => {
                         console.quit(ctx);
                     }
                 }
             }
-            meta::GameMode::InGame { ref db, player } => {
+            meta::GameMode::InGame {
+                ref db,
+                player,
+                is_creative: _is_creative,
+            } => {
                 let new_mode = meta::in_game_keydown_handler(db, &keys, player)?;
 
                 if let Some(meta::GameMode::WonGame) = new_mode {

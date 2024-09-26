@@ -84,9 +84,12 @@ impl FromSql for Plane {
     }
 }
 
-pub fn init_player(db: &rusqlite::Connection) -> rusqlite::Result<entity::Entity> {
+pub fn init_player(
+    db: &rusqlite::Connection,
+    is_creative: bool,
+) -> rusqlite::Result<entity::Entity> {
     let player = entity::create(db)?;
-    component::player::set(db, player)?;
+    component::player::set(db, player, is_creative)?;
     component::velocity::set(db, player, 0, 0)?;
     component::collision::set(db, player, false, true, false)?;
     Ok(player)
