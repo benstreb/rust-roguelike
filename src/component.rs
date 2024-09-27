@@ -143,13 +143,14 @@ pub mod actor {
         color: game_object::Color,
         plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
-        db.execute(
+        db.prepare_cached(
             "INSERT INTO Actor (entity, tile, x, y, r, g, b, plane)
             SELECT :entity, :tile, x, y, :r, :g, :b, :plane
             FROM Actor
             WHERE Actor.entity IN (SELECT entity FROM PassableTiles)
             ORDER BY RANDOM()
-            LIMIT 1",
+            LIMIT 1"
+        )?.execute(
             named_params![":entity": entity, ":tile": tile, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
         )?;
         Ok(())
@@ -216,12 +217,12 @@ pub mod velocity {
         dx: i64,
         dy: i64,
     ) -> rusqlite::Result<()> {
-        db.execute(
+        db.prepare_cached(
             "INSERT INTO Velocity (entity, dx, dy)
             VALUES (?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET dx = excluded.dx, dy = excluded.dy",
-            params![entity, dx, dy],
-        )?;
+        )?
+        .execute(params![entity, dx, dy])?;
         Ok(())
     }
 
@@ -230,12 +231,12 @@ pub mod velocity {
         entity: entity::Entity,
         range: RangeInclusive<i64>,
     ) -> rusqlite::Result<()> {
-        db.execute(
+        db.prepare_cached(
             "INSERT INTO Velocity (entity, dx, dy)
             VALUES (:entity, pcg_randint(:min, :max), pcg_randint(:min, :max))
             ON CONFLICT (entity) DO UPDATE SET dx = excluded.dx, dy = excluded.dy",
-            named_params![":entity": entity, ":min": range.start(), ":max": range.end()],
-        )?;
+        )?
+        .execute(named_params![":entity": entity, ":min": range.start(), ":max": range.end()])?;
         Ok(())
     }
 }
@@ -283,10 +284,11 @@ pub mod collision {
         solid: bool,
         ephemeral: bool,
     ) -> rusqlite::Result<()> {
-        db.execute(
+        db.prepare_cached(
             "INSERT INTO Collision (entity, ground, solid, ephemeral)
             VALUES (?, ?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET ground = excluded.ground, solid = excluded.solid, ephemeral = excluded.ephemeral",
+        )?.execute(
             params![entity, ground, solid, ephemeral],
         )?;
         Ok(())
@@ -316,10 +318,11 @@ pub mod health {
         current: i64,
         regen: i64,
     ) -> rusqlite::Result<()> {
-        db.execute(
+        db.prepare_cached(
             "INSERT INTO Health (entity, max, current, regen)
             VALUES (?, ?, ?, ?)
             ON CONFLICT (entity) DO UPDATE SET max = excluded.max, current = excluded.current, regen = excluded.regen",
+        )?.execute(
             params![entity, max, current, regen],
         )?;
         Ok(())
@@ -342,10 +345,11 @@ pub mod ai {
     }
 
     pub fn set_random(db: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
-        db.execute(
+        db.prepare_cached(
             "INSERT INTO Ai (entity, random, target_player)
             VALUES (?, TRUE, FALSE)
             ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
+        )?.execute(
             params![entity],
         )?;
         Ok(())
@@ -355,10 +359,11 @@ pub mod ai {
         db: &rusqlite::Connection,
         entity: entity::Entity,
     ) -> rusqlite::Result<()> {
-        db.execute(
+        db.prepare_cached(
             "INSERT INTO Ai (entity, random, target_player)
             VALUES (?, FALSE, TRUE)
             ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
+        )?.execute(
             params![entity],
         )?;
         Ok(())
