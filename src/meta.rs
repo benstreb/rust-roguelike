@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 
+use crate::profiler::TurnProfiler;
 use crate::{component, entity, game_object, system};
 
 use crate::console::{Console, VirtualKeyCode};
@@ -17,6 +18,7 @@ pub enum GameMode {
     InGame {
         db: rusqlite::Connection,
         player: entity::Entity,
+        profiler: TurnProfiler,
         is_creative: bool,
     },
     WonGame,

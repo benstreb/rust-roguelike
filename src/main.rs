@@ -10,6 +10,7 @@ mod system;
 use crate::console::Console;
 use ggez::{conf::WindowMode, ContextBuilder, GameResult};
 use map_gen::Tile;
+use profiler::TurnProfiler;
 use rand::{Rng, SeedableRng};
 use std::{path::Path, sync::Mutex};
 
@@ -37,8 +38,6 @@ fn add_pcg_randint_function(
 }
 
 fn main() -> anyhow::Result<()> {
-    let turn_profiler = profiler::TurnProfiler::new("./turn_log.csv")?;
-
     let rng = Box::leak(Box::new(Mutex::new(rand_pcg::Pcg64Mcg::from_entropy())));
 
     // Placeholder for game engine init
@@ -58,7 +57,6 @@ fn main() -> anyhow::Result<()> {
         GgezState {
             console,
             state: State {
-                turn_profiler,
                 rng,
                 renderer: meta::Renderer::new(),
                 mode: meta::GameMode::MainMenu(main_menu),
@@ -73,7 +71,6 @@ struct GgezState {
 }
 
 struct State {
-    turn_profiler: profiler::TurnProfiler,
     mode: meta::GameMode,
     renderer: meta::Renderer,
     rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
@@ -142,9 +139,11 @@ fn new_game<P: AsRef<Path>>(
     }
     db.execute_batch("COMMIT TRANSACTION")?;
 
+    let profiler = TurnProfiler::new(&db)?;
     Ok(meta::GameMode::InGame {
         db,
         player,
+        profiler,
         is_creative,
     })
 }
@@ -156,9 +155,11 @@ fn load_game<P: AsRef<Path>>(
     let db = open_db(path, rng)?;
     let player = entity::load_player(&db)?;
     let is_creative = component::player::is_creative(&db)?;
+    let profiler = TurnProfiler::new(&db)?;
     Ok(meta::GameMode::InGame {
         db,
         player,
+        profiler,
         is_creative,
     })
 }
@@ -227,6 +228,7 @@ impl State {
             meta::GameMode::InGame {
                 ref db,
                 player,
+                mut profiler,
                 is_creative: _is_creative,
             } => {
                 let new_mode = meta::in_game_keydown_handler(db, &keys, player)?;
@@ -236,25 +238,32 @@ impl State {
                     self.renderer.mark_dirty();
                 } else if component::player::outstanding_turns(db)? > 0 {
                     db.execute_batch("BEGIN TRANSACTION")?;
-                    let turn_start = self.turn_profiler.start();
+                    let mut turn = profiler.start();
                     system::apply_ai(db)?;
+                    turn.split("ai");
                     system::move_actors(db)?;
+                    turn.split("movement");
                     component::player::pass_time(db, 1)?;
+                    turn.split("time");
                     system::apply_regen(db)?;
+                    turn.split("regen");
                     for _ in 0..25 {
                         game_object::generate_particles(db, 25)?;
                     }
+                    turn.split("particles");
                     for _ in 0..5 {
                         game_object::generate_enemies(db, 10)?;
                     }
+                    turn.split("enemies");
                     system::cull_dead(db)?;
                     system::cull_ephemeral(db)?;
-                    let turn = component::player::turns_passed(db)?;
+                    turn.split("culling");
+                    let turn_num = component::player::turns_passed(db)?;
 
                     let actor_count = component::actor::count(db)?;
                     db.execute_batch("COMMIT TRANSACTION")?;
 
-                    self.turn_profiler.end(turn, turn_start, actor_count)?;
+                    profiler.end(db, turn_num, turn, actor_count)?;
                     self.renderer.mark_dirty();
                 }
             }
