@@ -44,8 +44,8 @@ fn main() -> anyhow::Result<()> {
     // Placeholder for game engine init
     let (mut ctx, event_loop) = ContextBuilder::new("rust_roguelike", "Yours Truly")
         .window_mode(WindowMode {
-            width: (console::PIXEL_SIZE + 2.) * game_object::CONSOLE_WIDTH as f32,
-            height: (console::PIXEL_SIZE + 2.) * game_object::CONSOLE_HEIGHT as f32,
+            width: (console::PIXEL_WIDTH) * (game_object::CONSOLE_WIDTH - 1) as f32,
+            height: (console::PIXEL_HEIGHT) * (game_object::CONSOLE_HEIGHT - 1) as f32,
             ..Default::default()
         })
         .build()?;

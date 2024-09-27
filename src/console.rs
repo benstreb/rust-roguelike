@@ -5,7 +5,9 @@ use ggez::{glam, graphics, input::keyboard, GameResult};
 
 use crate::game_object::Color;
 
-pub const PIXEL_SIZE: f32 = 14.;
+pub const PIXEL_SIZE: f32 = 16.;
+pub const PIXEL_WIDTH: f32 = 8.475;
+pub const PIXEL_HEIGHT: f32 = 16.;
 
 pub type VirtualKeyCode = keyboard::KeyCode;
 
@@ -62,8 +64,8 @@ impl Console {
         let bg_box = graphics::Rect::new(
             top_left.x,
             top_left.y,
-            PIXEL_SIZE * s.chars().count() as f32,
-            PIXEL_SIZE,
+            PIXEL_WIDTH * s.chars().count() as f32,
+            PIXEL_HEIGHT,
         );
         canvas.draw(
             &graphics::Quad,
@@ -89,6 +91,6 @@ impl Console {
     }
 
     fn to_pixel_coordinates(x: i64, y: i64) -> glam::Vec2 {
-        glam::Vec2::new(x as f32 * 16., y as f32 * 16.)
+        glam::Vec2::new(x as f32 * PIXEL_WIDTH, y as f32 * PIXEL_HEIGHT)
     }
 }
