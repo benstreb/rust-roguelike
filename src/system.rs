@@ -1,8 +1,6 @@
-use crate::game_object::{CONSOLE_HEIGHT, CONSOLE_WIDTH};
-use crate::{component, entity, game_object};
-
-use bracket_pathfinding::prelude::{Algorithm2D, BaseMap, DijkstraMap, Point as BPoint, SmallVec};
 use rusqlite::{named_params, OptionalExtension};
+
+use crate::component;
 
 pub fn move_actors(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     db.execute_batch(
@@ -44,59 +42,8 @@ pub fn follow_transition(db: &rusqlite::Connection) -> rusqlite::Result<Option<S
     .optional()
 }
 
-struct RowMap(Vec<(bool, i64, i64)>);
-impl RowMap {
-    fn valid_exit(&self, location: BPoint, offset: BPoint) -> Option<usize> {
-        let destination = location + offset;
-        if destination.x < 0
-            || destination.x as i64 >= game_object::CONSOLE_WIDTH
-            || destination.y < 0
-            || destination.y as i64 >= game_object::CONSOLE_HEIGHT
-        {
-            return None;
-        }
-        let dest = self.point2d_to_index(destination);
-        if self.0[dest].0 {
-            return Some(dest);
-        }
-        None
-    }
-}
-
-impl Algorithm2D for RowMap {
-    fn dimensions(&self) -> BPoint {
-        BPoint::new(game_object::CONSOLE_WIDTH, game_object::CONSOLE_HEIGHT)
-    }
-}
-
-impl BaseMap for RowMap {
-    fn is_opaque(&self, idx: usize) -> bool {
-        self.0[idx].0
-    }
-
-    fn get_available_exits(&self, idx: usize) -> SmallVec<[(usize, f32); 10]> {
-        let mut exits = SmallVec::new();
-        let location = self.index_to_point2d(idx);
-
-        if let Some(idx) = self.valid_exit(location, BPoint::new(-1, 0)) {
-            exits.push((idx, 1.0))
-        }
-        if let Some(idx) = self.valid_exit(location, BPoint::new(1, 0)) {
-            exits.push((idx, 1.0))
-        }
-        if let Some(idx) = self.valid_exit(location, BPoint::new(0, -1)) {
-            exits.push((idx, 1.0))
-        }
-        if let Some(idx) = self.valid_exit(location, BPoint::new(0, 1)) {
-            exits.push((idx, 1.0))
-        }
-
-        exits
-    }
-}
-
 pub fn apply_ai(db: &rusqlite::Connection) -> rusqlite::Result<()> {
-    db.execute_batch(
+    db.execute(
         "
         -- This query randomly updates all velocities with a random AI Type to
         -- one of the 8 cardinal directions. The spurious-seeming cor.val field
@@ -120,84 +67,9 @@ pub fn apply_ai(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         )
         FROM Ai, (SELECT 1 AS val) AS cor
         WHERE Ai.entity = Velocity.entity
-            AND Ai.random = TRUE",
+            AND Ai.type = :type",
+        named_params! {":type": component::ai::AI_TYPE_RANDOM},
     )?;
-
-    // Query the database for ground tiles that are not solid
-    let mut stmt = db.prepare(
-        "SELECT
-             ifnull(PassableTiles.entity, 0) AS passable,
-             grid.x,
-             grid.y
-         FROM (
-             SELECT x, y
-                FROM (SELECT value AS y FROM generate_series(0, :height - 1)),
-                    (SELECT value AS x FROM generate_series(0, :width - 1))
-         ) AS grid
-         LEFT JOIN PassableTiles on grid.x = PassableTiles.x AND grid.y = PassableTiles.y
-         ORDER BY grid.y, grid.x",
-    )?;
-    let map = RowMap(
-        stmt.query_map(
-            named_params! {":width": CONSOLE_WIDTH, ":height": CONSOLE_HEIGHT},
-            |row| {
-                let passable: bool = row.get("passable")?;
-                let x: i64 = row.get("x")?;
-                let y: i64 = row.get("y")?;
-                Ok((passable, x, y))
-            },
-        )?
-        .collect::<rusqlite::Result<Vec<(bool, i64, i64)>>>()?,
-    );
-
-    // Query the database for the player's position
-    let mut stmt = db.prepare(
-        "SELECT x, y
-         FROM Actor
-         JOIN Player ON Actor.entity = Player.entity
-         LIMIT 1",
-    )?;
-    let player_pos = stmt.query_row((), |row| {
-        let x: i32 = row.get(0)?;
-        let y: i32 = row.get(1)?;
-        Ok(BPoint::new(x, y))
-    })?;
-
-    // Query the database for actors with AI targeting the player
-    let mut stmt = db.prepare(
-        "SELECT Actor.entity, x, y
-         FROM Actor
-         JOIN Ai ON Actor.entity = Ai.entity
-         WHERE Ai.target_player = TRUE",
-    )?;
-    let actors = stmt.query_map((), |row| {
-        let entity: entity::Entity = row.get(0)?;
-        let x: i32 = row.get(1)?;
-        let y: i32 = row.get(2)?;
-        Ok((entity, BPoint::new(x, y)))
-    })?;
-
-    // Create a Dijkstra map for pathfinding
-    let dijkstra_map = DijkstraMap::new(
-        game_object::CONSOLE_WIDTH as usize,
-        game_object::CONSOLE_HEIGHT as usize,
-        &[map.point2d_to_index(player_pos)],
-        &map,
-        100.0,
-    );
-
-    // Update the velocity of each actor based on the Dijkstra map
-    for actor in actors {
-        let (entity, pos) = actor?;
-        if let Some(path) =
-            DijkstraMap::find_lowest_exit(&dijkstra_map, map.point2d_to_index(pos), &map)
-        {
-            let next_pos = map.index_to_point2d(path);
-            let dx = next_pos.x - pos.x;
-            let dy = next_pos.y - pos.y;
-            component::velocity::set(db, entity, dx as i64, dy as i64)?;
-        }
-    }
 
     Ok(())
 }

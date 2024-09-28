@@ -1,7 +1,7 @@
 use crate::entity;
 use crate::game_object;
 
-use rusqlite::params;
+use rusqlite::{named_params, params};
 
 pub fn create_tables(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     player::create_table(db)?;
@@ -16,8 +16,6 @@ pub fn create_tables(db: &rusqlite::Connection) -> rusqlite::Result<()> {
 }
 
 pub mod player {
-    use rusqlite::named_params;
-
     use super::*;
 
     pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
@@ -83,8 +81,6 @@ pub mod player {
 }
 
 pub mod actor {
-    use rusqlite::named_params;
-
     use super::*;
 
     #[derive(Debug)]
@@ -192,8 +188,6 @@ pub mod actor {
 
 pub mod velocity {
     use std::ops::RangeInclusive;
-
-    use rusqlite::named_params;
 
     use super::*;
 
@@ -332,13 +326,14 @@ pub mod health {
 pub mod ai {
     use super::*;
 
+    pub const AI_TYPE_RANDOM: &str = "random";
+
     pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Ai (
                 entity INTEGER UNIQUE NOT NULL,
-                random BOOLEAN,
-                target_player BOOLEAN,
+                type TEXT,
                 FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
             )",
         )
@@ -346,26 +341,11 @@ pub mod ai {
 
     pub fn set_random(db: &rusqlite::Connection, entity: entity::Entity) -> rusqlite::Result<()> {
         db.prepare_cached(
-            "INSERT INTO Ai (entity, random, target_player)
-            VALUES (?, TRUE, FALSE)
-            ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
-        )?.execute(
-            params![entity],
-        )?;
-        Ok(())
-    }
-
-    pub fn set_target_player(
-        db: &rusqlite::Connection,
-        entity: entity::Entity,
-    ) -> rusqlite::Result<()> {
-        db.prepare_cached(
-            "INSERT INTO Ai (entity, random, target_player)
-            VALUES (?, FALSE, TRUE)
-            ON CONFLICT (entity) DO UPDATE SET random = excluded.random, target_player = excluded.target_player",
-        )?.execute(
-            params![entity],
-        )?;
+            "INSERT INTO Ai (entity, type)
+            VALUES (:entity, :type)
+            ON CONFLICT (entity) DO UPDATE SET type = excluded.type",
+        )?
+        .execute(named_params! {":entity": entity, ":type": AI_TYPE_RANDOM})?;
         Ok(())
     }
 }

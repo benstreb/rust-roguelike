@@ -158,7 +158,6 @@ pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::R
     component::velocity::set(db, entity, 0, 0)?;
     component::health::set(db, entity, lifespan, lifespan, -1)?;
     component::collision::set(db, entity, false, true, false)?;
-    component::ai::set_target_player(db, entity)?;
-    // component::ai::set_random(sql, entity)?;
+    component::ai::set_random(db, entity)?;
     Ok(())
 }
