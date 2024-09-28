@@ -11,7 +11,7 @@ use crate::console::Console;
 use ggez::{conf::WindowMode, ContextBuilder, GameResult};
 use map_gen::Tile;
 use profiler::TurnProfiler;
-use rand::{Rng, SeedableRng};
+use rand::Rng;
 use std::{path::Path, sync::Mutex};
 
 const DESIRED_FPS: u32 = 60;
