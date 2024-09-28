@@ -21,10 +21,9 @@ fn add_pcg_randint_function(
     rng: &'static Mutex<meta::GameRng>,
 ) -> rusqlite::Result<()> {
     use rusqlite::functions::FunctionFlags;
-    const SQLITE_RANDINT_ARGC: i32 = 2;
     db.create_scalar_function(
         "pcg_randint",
-        SQLITE_RANDINT_ARGC,
+        2,
         FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DIRECTONLY,
         move |ctx| {
             let min = ctx.get::<i32>(0)?;
@@ -32,6 +31,15 @@ fn add_pcg_randint_function(
             let spread = (max - min).abs();
             let start = min.min(max);
             let num = rng.lock().unwrap().gen_range(start..=start + spread);
+            Ok(num)
+        },
+    )?;
+    db.create_scalar_function(
+        "pcg_random",
+        0,
+        FunctionFlags::SQLITE_UTF8 | FunctionFlags::SQLITE_DIRECTONLY,
+        move |_ctx| {
+            let num = rng.lock().unwrap().gen::<i64>();
             Ok(num)
         },
     )

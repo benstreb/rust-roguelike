@@ -148,7 +148,7 @@ pub mod actor {
             SELECT :entity, :tile, x, y, :r, :g, :b, :plane
             FROM Actor
             WHERE Actor.entity IN (SELECT entity FROM PassableTiles)
-            ORDER BY RANDOM()
+            ORDER BY pcg_random()
             LIMIT 1"
         )?.execute(
             named_params![":entity": entity, ":tile": tile, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
