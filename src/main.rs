@@ -18,7 +18,7 @@ const DESIRED_FPS: u32 = 60;
 
 fn add_pcg_randint_function(
     db: &rusqlite::Connection,
-    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    rng: &'static Mutex<meta::GameRng>,
 ) -> rusqlite::Result<()> {
     use rusqlite::functions::FunctionFlags;
     const SQLITE_RANDINT_ARGC: i32 = 2;
@@ -38,7 +38,7 @@ fn add_pcg_randint_function(
 }
 
 fn main() -> anyhow::Result<()> {
-    let rng = Box::leak(Box::new(Mutex::new(rand_pcg::Pcg64Mcg::from_entropy())));
+    let rng = Box::leak(Box::new(Mutex::new(meta::init_rng())));
 
     // Placeholder for game engine init
     let (mut ctx, event_loop) = ContextBuilder::new("rust_roguelike", "Yours Truly")
@@ -73,11 +73,11 @@ struct GgezState {
 struct State {
     mode: meta::GameMode,
     renderer: meta::Renderer,
-    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    rng: &'static Mutex<meta::GameRng>,
 }
 
 fn new_game<P: AsRef<Path>>(
-    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    rng: &'static Mutex<meta::GameRng>,
     path: P,
     is_creative: bool,
     mut dungeon_generator: impl map_gen::Generator,
@@ -149,7 +149,7 @@ fn new_game<P: AsRef<Path>>(
 }
 
 fn load_game<P: AsRef<Path>>(
-    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    rng: &'static Mutex<meta::GameRng>,
     path: P,
 ) -> anyhow::Result<meta::GameMode> {
     let db = open_db(path, rng)?;
@@ -278,7 +278,7 @@ impl State {
 
 fn open_db<P: AsRef<Path>>(
     path: P,
-    rng: &'static Mutex<rand_pcg::Pcg64Mcg>,
+    rng: &'static Mutex<meta::GameRng>,
 ) -> rusqlite::Result<rusqlite::Connection> {
     let db = rusqlite::Connection::open(path)?;
 

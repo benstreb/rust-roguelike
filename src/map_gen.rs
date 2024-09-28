@@ -1,3 +1,4 @@
+use crate::meta;
 use rand::{seq::SliceRandom, Rng};
 use rusqlite::{types::FromSql, ToSql};
 
@@ -89,13 +90,13 @@ impl std::ops::IndexMut<(i64, i64)> for Dungeon {
 }
 
 pub trait Generator {
-    fn generate(&mut self, rng: &mut rand_pcg::Pcg64Mcg, width: i64, height: i64) -> Dungeon;
+    fn generate(&mut self, rng: &mut meta::GameRng, width: i64, height: i64) -> Dungeon;
 }
 
 pub struct EmptyGenerator;
 
 impl Generator for EmptyGenerator {
-    fn generate(&mut self, _: &mut rand_pcg::Pcg64Mcg, width: i64, height: i64) -> Dungeon {
+    fn generate(&mut self, _: &mut meta::GameRng, width: i64, height: i64) -> Dungeon {
         let mut d = Dungeon {
             width: width - 1,
             height: height - 1,
@@ -142,7 +143,7 @@ pub struct DefaultGenerator {
 }
 
 impl Generator for DefaultGenerator {
-    fn generate(&mut self, rng: &mut rand_pcg::Pcg64Mcg, width: i64, height: i64) -> Dungeon {
+    fn generate(&mut self, rng: &mut meta::GameRng, width: i64, height: i64) -> Dungeon {
         let mut dungeon = Dungeon {
             width: width - 1,
             height: height - 1,
@@ -162,7 +163,7 @@ impl DefaultGenerator {
         }
     }
 
-    fn populate(&mut self, rng: &mut rand_pcg::Pcg64Mcg, dungeon: &mut Dungeon, max_features: i32) {
+    fn populate(&mut self, rng: &mut meta::GameRng, dungeon: &mut Dungeon, max_features: i32) {
         // place the first room in the center
         if !self.make_room(
             rng,
@@ -194,7 +195,7 @@ impl DefaultGenerator {
         }
     }
 
-    fn create_feature(&mut self, rng: &mut rand_pcg::Pcg64Mcg, dungeon: &mut Dungeon) -> bool {
+    fn create_feature(&mut self, rng: &mut meta::GameRng, dungeon: &mut Dungeon) -> bool {
         let directions = [
             Direction::North,
             Direction::South,
@@ -227,7 +228,7 @@ impl DefaultGenerator {
 
     fn create_feature_at(
         &mut self,
-        rng: &mut rand_pcg::Pcg64Mcg,
+        rng: &mut meta::GameRng,
         x: i64,
         y: i64,
         dir: Direction,
@@ -274,7 +275,7 @@ impl DefaultGenerator {
 
     fn make_room(
         &mut self,
-        rng: &mut rand_pcg::Pcg64Mcg,
+        rng: &mut meta::GameRng,
         x: i64,
         y: i64,
         dir: Direction,
@@ -331,7 +332,7 @@ impl DefaultGenerator {
 
     fn make_corridor(
         &mut self,
-        rng: &mut rand_pcg::Pcg64Mcg,
+        rng: &mut meta::GameRng,
         x: i64,
         y: i64,
         dir: Direction,
@@ -417,12 +418,7 @@ impl DefaultGenerator {
         true
     }
 
-    fn place_object(
-        &mut self,
-        rng: &mut rand_pcg::Pcg64Mcg,
-        tile: Tile,
-        dungeon: &mut Dungeon,
-    ) -> bool {
+    fn place_object(&mut self, rng: &mut meta::GameRng, tile: Tile, dungeon: &mut Dungeon) -> bool {
         if self.rooms.is_empty() {
             return false;
         }
@@ -441,12 +437,7 @@ impl DefaultGenerator {
         }
     }
 
-    fn random_room(
-        &self,
-        rng: &mut rand_pcg::Pcg64Mcg,
-        anchor: (i64, i64),
-        dir: Direction,
-    ) -> Rect {
+    fn random_room(&self, rng: &mut meta::GameRng, anchor: (i64, i64), dir: Direction) -> Rect {
         let (x, y) = anchor;
 
         let mut room = Rect {
@@ -478,12 +469,7 @@ impl DefaultGenerator {
         room
     }
 
-    fn random_corridor(
-        &self,
-        rng: &mut rand_pcg::Pcg64Mcg,
-        anchor: (i64, i64),
-        dir: Direction,
-    ) -> Rect {
+    fn random_corridor(&self, rng: &mut meta::GameRng, anchor: (i64, i64), dir: Direction) -> Rect {
         let (x, y) = anchor;
 
         let mut corridor = Rect {

@@ -1,10 +1,15 @@
+use crate::console::{Console, VirtualKeyCode};
+use crate::profiler::TurnProfiler;
+use crate::{component, entity, game_object, system};
+use rand::SeedableRng;
 use std::collections::HashSet;
 use std::sync::{Arc, LazyLock};
 
-use crate::profiler::TurnProfiler;
-use crate::{component, entity, game_object, system};
+pub type GameRng = rand_pcg::Pcg64Mcg;
 
-use crate::console::{Console, VirtualKeyCode};
+pub fn init_rng() -> GameRng {
+    GameRng::from_entropy()
+}
 
 pub const SAVE_FILE_NAME: &'static str = "game.db";
 
