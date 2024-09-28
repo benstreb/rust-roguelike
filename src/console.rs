@@ -3,13 +3,36 @@ use std::collections::HashSet;
 // BTerm shim layer
 use ggez::{glam, graphics, input::keyboard, GameResult};
 
-use crate::game_object::Color;
+use crate::game_object::{self, Color};
+use crate::meta;
 
 pub const PIXEL_SIZE: f32 = 16.;
 pub const PIXEL_WIDTH: f32 = 8.475;
 pub const PIXEL_HEIGHT: f32 = 16.;
-
 pub type VirtualKeyCode = keyboard::KeyCode;
+
+#[derive(Debug, Clone, Copy)]
+pub struct ConsolePoint {
+    pub x: i64,
+    pub y: i64,
+}
+
+impl ConsolePoint {
+    pub fn down(&self, n: i64) -> ConsolePoint {
+        ConsolePoint {
+            x: self.x,
+            y: self.y + n,
+        }
+    }
+}
+impl From<game_object::WorldPoint> for ConsolePoint {
+    fn from(pos: game_object::WorldPoint) -> Self {
+        ConsolePoint {
+            x: pos.x + meta::WORLD_TOP_LEFT.x,
+            y: pos.y + meta::WORLD_TOP_LEFT.y,
+        }
+    }
+}
 
 pub struct Console {
     canvas: Option<graphics::Canvas>,
@@ -45,7 +68,7 @@ impl Console {
         ));
     }
 
-    pub fn print(&mut self, x: i64, y: i64, s: &str) {
+    pub fn print(&mut self, pos: ConsolePoint, s: &str) {
         let canvas = self.canvas.as_mut().expect("print called with no canvas");
         let fragment = graphics::TextFragment {
             text: s.to_owned(),
@@ -54,12 +77,12 @@ impl Console {
         };
         canvas.draw(
             graphics::Text::new(fragment).set_scale(PIXEL_SIZE),
-            Self::to_pixel_coordinates(x, y),
+            Self::to_pixel_coordinates(pos.x, pos.y),
         )
     }
-    pub fn print_color(&mut self, x: i64, y: i64, fg_color: Color, bg_color: Color, s: &str) {
+    pub fn print_color(&mut self, pos: ConsolePoint, fg_color: Color, bg_color: Color, s: &str) {
         let canvas = self.canvas.as_mut().expect("print called with no canvas");
-        let top_left = Self::to_pixel_coordinates(x, y);
+        let top_left = Self::to_pixel_coordinates(pos.x, pos.y);
 
         let bg_box = graphics::Rect::new(
             top_left.x,

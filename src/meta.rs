@@ -1,4 +1,4 @@
-use crate::console::{Console, VirtualKeyCode};
+use crate::console::{self, Console, ConsolePoint, VirtualKeyCode};
 use crate::profiler::TurnProfiler;
 use crate::{component, entity, game_object, system};
 use rand::SeedableRng;
@@ -19,6 +19,10 @@ pub const CREATIVE_MODE: &str = "Creative Mode";
 
 pub const CONSOLE_WIDTH: i64 = 80;
 pub const CONSOLE_HEIGHT: i64 = 25;
+
+pub const WORLD_TOP_LEFT: ConsolePoint = ConsolePoint { x: 0, y: 1 };
+pub const WORLD_WIDTH: i64 = 80;
+pub const WORLD_HEIGHT: i64 = 25;
 
 #[derive(Debug)]
 pub enum GameMode {
@@ -106,11 +110,11 @@ impl Renderer {
                 let visible_actors = component::actor::get_visible(db)?;
                 Self::draw_actors(&visible_actors, console);
                 let turn = component::player::turns_passed(db)?;
-                console.print(0, 0, &turn.to_string());
+                console.print(ConsolePoint { x: 0, y: 0 }, &turn.to_string());
             }
             GameMode::WonGame => {
                 console.cls(ctx);
-                console.print(1, 1, "You Win");
+                console.print(ConsolePoint { x: 1, y: 1 }, "You Win");
             }
         }
         console.finish(ctx).expect("I'm dead!");
@@ -121,8 +125,7 @@ impl Renderer {
     fn draw_actors(actors: &Vec<component::actor::Actor>, console: &mut Console) {
         for actor in actors {
             console.print_color(
-                actor.pos.x,
-                actor.pos.y,
+                actor.pos.into(),
                 actor.color,
                 game_object::BACKGROUND_COLOR,
                 &actor.tile,
@@ -138,20 +141,14 @@ impl Renderer {
             } else {
                 color = game_object::MENU_COLOR_UNSELECTED;
             }
-            console.print_color(
-                menu.top_left.x,
-                menu.top_left.y + i as i64,
-                color.fg,
-                color.bg,
-                item,
-            )
+            console.print_color(menu.top_left.down(i as i64), color.fg, color.bg, item)
         }
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct Menu {
-    top_left: game_object::Point,
+    top_left: console::ConsolePoint,
     selected: usize,
     items: Arc<Vec<String>>,
 }
@@ -196,7 +193,7 @@ pub fn main_menu() -> Menu {
         ])
     });
     Menu {
-        top_left: game_object::Point { x: 0, y: 0 },
+        top_left: ConsolePoint { x: 0, y: 0 },
         selected: 0,
         items: MAIN_MENU_ITEMS.clone(),
     }

@@ -87,7 +87,7 @@ pub mod actor {
     pub struct Actor {
         pub entity: entity::Entity,
         pub tile: String,
-        pub pos: game_object::Point,
+        pub pos: game_object::WorldPoint,
         pub color: game_object::Color,
         pub plane: game_object::Plane,
     }
@@ -172,7 +172,7 @@ pub mod actor {
                 Ok(Actor {
                     entity,
                     tile,
-                    pos: game_object::Point { x, y },
+                    pos: game_object::WorldPoint { x, y },
                     color: game_object::Color { r, g, b },
                     plane,
                 })

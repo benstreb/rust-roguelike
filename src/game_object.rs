@@ -4,7 +4,7 @@ use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, 
 pub const WIN_LEVEL: &str = "win";
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub struct Point {
+pub struct WorldPoint {
     pub x: i64,
     pub y: i64,
 }
@@ -92,7 +92,7 @@ pub fn init_player(
     Ok(player)
 }
 
-pub fn init_floor(db: &rusqlite::Connection, pos: Point) -> rusqlite::Result<entity::Entity> {
+pub fn init_floor(db: &rusqlite::Connection, pos: WorldPoint) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
     component::actor::set(
         db,
@@ -111,7 +111,7 @@ pub fn init_floor(db: &rusqlite::Connection, pos: Point) -> rusqlite::Result<ent
 pub fn init_wall(
     db: &rusqlite::Connection,
     tile: &str,
-    pos: Point,
+    pos: WorldPoint,
 ) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
     component::actor::set(

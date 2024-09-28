@@ -100,13 +100,12 @@ fn new_game<P: AsRef<Path>>(
     let player = game_object::init_player(&db, is_creative)?;
     let initial_dungeon = dungeon_generator.generate(
         &mut rng.lock().unwrap(),
-        meta::CONSOLE_WIDTH,
-        meta::CONSOLE_HEIGHT - 1,
+        meta::WORLD_WIDTH,
+        meta::WORLD_HEIGHT - 1,
     );
 
     for (tile, x, y) in initial_dungeon.iter() {
-        let y = y + 1; // top row is reserved for diagnostics
-        let pos = game_object::Point { x, y };
+        let pos = game_object::WorldPoint { x, y };
 
         if tile == Tile::Unused {
             continue;
