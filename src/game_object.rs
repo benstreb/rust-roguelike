@@ -1,9 +1,6 @@
 use crate::{component, entity};
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 
-pub const CONSOLE_WIDTH: i64 = 80;
-pub const CONSOLE_HEIGHT: i64 = 25;
-
 pub const WIN_LEVEL: &str = "win";
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

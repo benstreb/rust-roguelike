@@ -17,6 +17,9 @@ pub const NEW_GAME: &str = "New Game";
 pub const LOAD_GAME: &str = "Load Game";
 pub const CREATIVE_MODE: &str = "Creative Mode";
 
+pub const CONSOLE_WIDTH: i64 = 80;
+pub const CONSOLE_HEIGHT: i64 = 25;
+
 #[derive(Debug)]
 pub enum GameMode {
     MainMenu(Menu),
