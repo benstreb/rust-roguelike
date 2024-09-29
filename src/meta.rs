@@ -18,7 +18,7 @@ pub const LOAD_GAME: &str = "Load Game";
 pub const CREATIVE_MODE: &str = "Creative Mode";
 
 pub const CONSOLE_WIDTH: i64 = 80;
-pub const CONSOLE_HEIGHT: i64 = 25;
+pub const CONSOLE_HEIGHT: i64 = 30;
 
 pub const WORLD_TOP_LEFT: ConsolePoint = ConsolePoint { x: 0, y: 1 };
 pub const WORLD_WIDTH: i64 = 80;
@@ -116,11 +116,20 @@ impl Renderer {
                 console.print(ConsolePoint { x: 0, y: 0 }, &turn.to_string());
                 if let Some(pos) = selected_point {
                     console.print(
-                        ConsolePoint { x: 10, y: 0 },
+                        ConsolePoint {
+                            x: 0,
+                            y: WORLD_HEIGHT + 2,
+                        },
                         &format!("({:<2}, {:<2})", pos.x, pos.y),
                     );
                 } else {
-                    console.print(ConsolePoint { x: 10, y: 0 }, "Click something!");
+                    console.print(
+                        ConsolePoint {
+                            x: 0,
+                            y: WORLD_HEIGHT + 2,
+                        },
+                        "Click something!",
+                    );
                 }
             }
             GameMode::WonGame => {

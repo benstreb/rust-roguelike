@@ -52,8 +52,8 @@ fn main() -> anyhow::Result<()> {
     // Placeholder for game engine init
     let (mut ctx, event_loop) = ContextBuilder::new("rust_roguelike", "Yours Truly")
         .window_mode(WindowMode {
-            width: (console::PIXEL_WIDTH) * (meta::CONSOLE_WIDTH - 1) as f32,
-            height: (console::PIXEL_HEIGHT) * (meta::CONSOLE_HEIGHT - 1) as f32,
+            width: (console::PIXEL_WIDTH) * meta::CONSOLE_WIDTH as f32,
+            height: (console::PIXEL_HEIGHT) * meta::CONSOLE_HEIGHT as f32,
             ..Default::default()
         })
         .build()?;
@@ -102,7 +102,7 @@ fn new_game<P: AsRef<Path>>(
     let initial_dungeon = dungeon_generator.generate(
         &mut rng.lock().unwrap(),
         meta::WORLD_WIDTH,
-        meta::WORLD_HEIGHT - 1,
+        meta::WORLD_HEIGHT,
     );
 
     for (tile, x, y) in initial_dungeon.iter() {

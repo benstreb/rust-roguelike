@@ -98,13 +98,13 @@ pub struct EmptyGenerator;
 impl Generator for EmptyGenerator {
     fn generate(&mut self, _: &mut meta::GameRng, width: i64, height: i64) -> Dungeon {
         let mut d = Dungeon {
-            width: width - 1,
-            height: height - 1,
+            width: width,
+            height: height,
             tiles: vec![Tile::Unused; (width * height) as usize],
         };
-        for i in 0..width - 1 {
-            for j in 0..height - 1 {
-                if i == 0 || i == width - 2 || j == 0 || j == height - 2 {
+        for i in 0..d.width {
+            for j in 0..d.height {
+                if i == 0 || i == d.width - 1 || j == 0 || j == d.height - 1 {
                     d[(i, j)] = Tile::Wall;
                 } else {
                     d[(i, j)] = Tile::Floor;
@@ -145,8 +145,8 @@ pub struct DefaultGenerator {
 impl Generator for DefaultGenerator {
     fn generate(&mut self, rng: &mut meta::GameRng, width: i64, height: i64) -> Dungeon {
         let mut dungeon = Dungeon {
-            width: width - 1,
-            height: height - 1,
+            width: width,
+            height: height,
             tiles: vec![Tile::Unused; (width * height) as usize],
         };
         let max_features = 50;
