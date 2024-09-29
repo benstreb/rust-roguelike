@@ -32,6 +32,7 @@ pub enum GameMode {
         player: entity::Entity,
         profiler: TurnProfiler,
         is_creative: bool,
+        selected_point: Option<ConsolePoint>,
     },
     WonGame,
 }
@@ -106,11 +107,21 @@ impl Renderer {
         console.cls(ctx);
         match gamemode {
             GameMode::MainMenu(menu) => Self::draw_menu(menu, console),
-            GameMode::InGame { db, .. } => {
+            GameMode::InGame {
+                db, selected_point, ..
+            } => {
                 let visible_actors = component::actor::get_visible(db)?;
                 Self::draw_actors(&visible_actors, console);
                 let turn = component::player::turns_passed(db)?;
                 console.print(ConsolePoint { x: 0, y: 0 }, &turn.to_string());
+                if let Some(pos) = selected_point {
+                    console.print(
+                        ConsolePoint { x: 10, y: 0 },
+                        &format!("({:<2}, {:<2})", pos.x, pos.y),
+                    );
+                } else {
+                    console.print(ConsolePoint { x: 10, y: 0 }, "Click something!");
+                }
             }
             GameMode::WonGame => {
                 console.cls(ctx);

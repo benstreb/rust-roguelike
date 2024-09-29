@@ -10,8 +10,9 @@ pub const PIXEL_SIZE: f32 = 16.;
 pub const PIXEL_WIDTH: f32 = 8.475;
 pub const PIXEL_HEIGHT: f32 = 16.;
 pub type VirtualKeyCode = keyboard::KeyCode;
+pub type ClickType = ggez::event::MouseButton;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ConsolePoint {
     pub x: i64,
     pub y: i64,
@@ -34,9 +35,25 @@ impl From<game_object::WorldPoint> for ConsolePoint {
     }
 }
 
+impl From<ggez::mint::Point2<f32>> for ConsolePoint {
+    fn from(pos: ggez::mint::Point2<f32>) -> Self {
+        return ConsolePoint {
+            x: (pos.x / PIXEL_WIDTH) as i64,
+            y: (pos.y / PIXEL_HEIGHT) as i64,
+        };
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ClickEvent {
+    pub click_type: ClickType,
+    pub pos: ConsolePoint,
+}
+
 pub struct Console {
     canvas: Option<graphics::Canvas>,
     handled_keys: HashSet<VirtualKeyCode>,
+    handled_clicks: HashSet<ClickType>,
 }
 
 impl Console {
@@ -44,6 +61,7 @@ impl Console {
         Console {
             canvas: None,
             handled_keys: HashSet::new(),
+            handled_clicks: HashSet::new(),
         }
     }
 
@@ -55,6 +73,30 @@ impl Console {
             .collect::<HashSet<VirtualKeyCode>>();
         self.handled_keys = keys.clone();
         new_keys
+    }
+
+    pub fn clicks(&mut self, ctx: &ggez::Context) -> HashSet<ClickEvent> {
+        let mut clicks = HashSet::new();
+        if ctx.mouse.button_pressed(ClickType::Left) {
+            clicks.insert(ClickType::Left);
+        }
+        if ctx.mouse.button_pressed(ClickType::Right) {
+            clicks.insert(ClickType::Right);
+        }
+
+        let new_clicks = clicks
+            .difference(&self.handled_clicks)
+            .copied()
+            .collect::<HashSet<ClickType>>();
+        self.handled_clicks = clicks.clone();
+
+        new_clicks
+            .into_iter()
+            .map(|click_type| ClickEvent {
+                pos: ctx.mouse.position().into(),
+                click_type,
+            })
+            .collect::<HashSet<ClickEvent>>()
     }
 
     pub fn quit(&self, ctx: &mut ggez::Context) {

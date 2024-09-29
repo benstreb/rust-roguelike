@@ -8,6 +8,7 @@ mod profiler;
 mod system;
 
 use crate::console::Console;
+use console::ClickEvent;
 use ggez::{conf::WindowMode, ContextBuilder, GameResult};
 use map_gen::Tile;
 use profiler::TurnProfiler;
@@ -152,6 +153,7 @@ fn new_game<P: AsRef<Path>>(
         player,
         profiler,
         is_creative,
+        selected_point: None,
     })
 }
 
@@ -168,6 +170,7 @@ fn load_game<P: AsRef<Path>>(
         player,
         profiler,
         is_creative,
+        selected_point: None,
     })
 }
 
@@ -237,7 +240,13 @@ impl State {
                 player,
                 mut profiler,
                 is_creative: _is_creative,
+                ref mut selected_point,
             } => {
+                let clicks = console.clicks(ctx);
+                if let Some(ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0) {
+                    *selected_point = Some(pos);
+                    self.renderer.mark_dirty();
+                }
                 let new_mode = meta::in_game_keydown_handler(db, &keys, player)?;
 
                 if let Some(meta::GameMode::WonGame) = new_mode {
