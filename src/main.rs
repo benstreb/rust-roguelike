@@ -63,23 +63,17 @@ fn main() -> anyhow::Result<()> {
     ggez::event::run(
         ctx,
         event_loop,
-        GgezState {
+        State {
             console,
-            state: State {
-                rng,
-                renderer: meta::Renderer::new(),
-                mode: meta::GameMode::MainMenu(main_menu),
-            },
+            rng,
+            renderer: meta::Renderer::new(),
+            mode: meta::GameMode::MainMenu(main_menu),
         },
     );
 }
 
-struct GgezState {
-    console: Console,
-    state: State,
-}
-
 struct State {
+    console: Console,
     mode: meta::GameMode,
     renderer: meta::Renderer,
     rng: &'static Mutex<meta::GameRng>,
@@ -174,29 +168,26 @@ fn load_game<P: AsRef<Path>>(
     })
 }
 
-impl ggez::event::EventHandler<ggez::GameError> for GgezState {
+impl ggez::event::EventHandler<ggez::GameError> for State {
     fn update(&mut self, ctx: &mut ggez::Context) -> GameResult {
         while ctx.time.check_update_time(DESIRED_FPS) {
-            self.state
-                .tick(&mut self.console, ctx)
-                .expect("Unexpected error during game tick")
+            self.tick(ctx).expect("Unexpected error during game tick")
         }
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult {
-        self.state
-            .renderer
-            .draw(&self.state.mode, &mut self.console, ctx)
+        self.renderer
+            .draw(&self.mode, &mut self.console, ctx)
             .expect("Unexpected error during game draw");
         Ok(())
     }
 }
 
 impl State {
-    fn tick(&mut self, console: &mut Console, ctx: &mut ggez::Context) -> anyhow::Result<()> {
+    fn tick(&mut self, ctx: &mut ggez::Context) -> anyhow::Result<()> {
         // Game loop.
-        let keys = console.key_presses(ctx);
+        let keys = self.console.key_presses(ctx);
         match self.mode {
             meta::GameMode::MainMenu(ref mut menu) => {
                 let selected = meta::keydown_handler(&keys, menu);
@@ -231,7 +222,7 @@ impl State {
                         println!("Unexpected menu item '{}'. This is a bug", selected)
                     }
                     meta::MenuResult::Back => {
-                        console.quit(ctx);
+                        self.console.quit(ctx);
                     }
                 }
             }
@@ -242,7 +233,7 @@ impl State {
                 is_creative: _is_creative,
                 ref mut selected_point,
             } => {
-                let clicks = console.clicks(ctx);
+                let clicks = self.console.clicks(ctx);
                 if let Some(ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0) {
                     *selected_point = Some(pos);
                     self.renderer.mark_dirty();
