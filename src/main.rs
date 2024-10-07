@@ -67,14 +67,14 @@ fn main() -> anyhow::Result<()> {
             console,
             rng,
             renderer: meta::Renderer::new(),
-            mode: meta::GameMode::MainMenu(main_menu),
+            mode: Box::new(meta::GameMode::MainMenu(main_menu)),
         },
     );
 }
 
 struct State {
     console: Console,
-    mode: meta::GameMode,
+    mode: Box<meta::GameMode>,
     renderer: meta::Renderer,
     rng: &'static Mutex<meta::GameRng>,
 }
@@ -188,7 +188,7 @@ impl State {
     fn tick(&mut self, ctx: &mut ggez::Context) -> anyhow::Result<()> {
         // Game loop.
         let keys = self.console.key_presses(ctx);
-        match self.mode {
+        match *self.mode {
             meta::GameMode::MainMenu(ref mut menu) => {
                 let selected = meta::keydown_handler(&keys, menu);
                 match selected {
@@ -197,25 +197,25 @@ impl State {
                         self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(meta::NEW_GAME) => {
-                        self.mode = new_game(
+                        self.mode = Box::new(new_game(
                             self.rng,
                             meta::SAVE_FILE_NAME,
                             false,
                             map_gen::DefaultGenerator::new(),
-                        )?;
+                        )?);
                         self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(meta::LOAD_GAME) => {
-                        self.mode = load_game(self.rng, meta::SAVE_FILE_NAME)?;
+                        self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
                         self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(meta::CREATIVE_MODE) => {
-                        self.mode = new_game(
+                        self.mode = Box::new(new_game(
                             self.rng,
                             meta::SAVE_FILE_NAME,
                             true,
                             map_gen::EmptyGenerator,
-                        )?;
+                        )?);
                         self.renderer.mark_dirty();
                     }
                     meta::MenuResult::Selected(selected) => {
@@ -241,7 +241,7 @@ impl State {
                 let new_mode = meta::in_game_keydown_handler(db, &keys, player)?;
 
                 if let Some(meta::GameMode::WonGame) = new_mode {
-                    self.mode = meta::GameMode::WonGame;
+                    self.mode = Box::new(meta::GameMode::WonGame);
                     self.renderer.mark_dirty();
                 } else if component::player::outstanding_turns(db)? > 0 {
                     db.execute_batch("BEGIN TRANSACTION")?;
