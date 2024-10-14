@@ -5,6 +5,7 @@ mod game_object;
 mod map_gen;
 mod meta;
 mod profiler;
+mod renderer;
 mod system;
 
 use crate::console::Console;
@@ -66,7 +67,7 @@ fn main() -> anyhow::Result<()> {
         State {
             console,
             rng,
-            renderer: meta::Renderer::new(),
+            renderer: renderer::Renderer::new(),
             mode: Box::new(meta::GameMode::MainMenu(main_menu)),
         },
     );
@@ -75,7 +76,7 @@ fn main() -> anyhow::Result<()> {
 struct State {
     console: Console,
     mode: Box<meta::GameMode>,
-    renderer: meta::Renderer,
+    renderer: renderer::Renderer,
     rng: &'static Mutex<meta::GameRng>,
 }
 

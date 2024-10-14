@@ -1,4 +1,4 @@
-use crate::console::{self, Console, ConsolePoint, VirtualKeyCode};
+use crate::console::{self, ConsolePoint, VirtualKeyCode};
 use crate::game_object::Direction;
 use crate::profiler::TurnProfiler;
 use crate::{component, entity, game_object, system};
@@ -117,96 +117,11 @@ pub fn won_game_keydown_handler(keycode: &HashSet<VirtualKeyCode>, mode: &mut Ga
     }
 }
 
-#[derive(Debug, Default)]
-pub struct Renderer {
-    dirty: bool,
-}
-
-impl Renderer {
-    pub fn new() -> Self {
-        Renderer { dirty: true }
-    }
-
-    pub fn mark_dirty(&mut self) {
-        self.dirty = true;
-    }
-
-    pub fn draw(
-        &mut self,
-        gamemode: &GameMode,
-        console: &mut Console,
-        ctx: &mut ggez::Context,
-    ) -> rusqlite::Result<()> {
-        if !self.dirty {
-            return Ok(());
-        }
-        console.cls(ctx);
-        match gamemode {
-            GameMode::MainMenu(menu) => Self::draw_menu(menu, console),
-            GameMode::InGame {
-                db, selected_point, ..
-            } => {
-                let visible_actors = component::actor::get_visible(db)?;
-                Self::draw_actors(&visible_actors, console);
-                let turn = component::player::turns_passed(db)?;
-                console.print(ConsolePoint { x: 0, y: 0 }, &turn.to_string());
-                if let Some(pos) = selected_point {
-                    console.print(
-                        ConsolePoint {
-                            x: 0,
-                            y: WORLD_HEIGHT + 2,
-                        },
-                        &format!("({:<2}, {:<2})", pos.x, pos.y),
-                    );
-                } else {
-                    console.print(
-                        ConsolePoint {
-                            x: 0,
-                            y: WORLD_HEIGHT + 2,
-                        },
-                        "Click something!",
-                    );
-                }
-            }
-            GameMode::WonGame => {
-                console.cls(ctx);
-                console.print(ConsolePoint { x: 1, y: 1 }, "You Win");
-            }
-        }
-        console.finish(ctx).expect("I'm dead!");
-        self.dirty = false;
-        Ok(())
-    }
-
-    fn draw_actors(actors: &Vec<component::actor::Actor>, console: &mut Console) {
-        for actor in actors {
-            console.print_color(
-                actor.pos.into(),
-                actor.color,
-                game_object::BACKGROUND_COLOR,
-                &actor.tile,
-            );
-        }
-    }
-
-    fn draw_menu(menu: &Menu, console: &mut Console) {
-        for (i, item) in menu.items.iter().enumerate() {
-            let color: game_object::MenuColor;
-            if i == menu.selected {
-                color = game_object::MENU_COLOR_SELECTED;
-            } else {
-                color = game_object::MENU_COLOR_UNSELECTED;
-            }
-            console.print_color(menu.top_left.down(i as i64), color.fg, color.bg, item)
-        }
-    }
-}
-
 #[derive(Clone)]
 pub struct Menu {
-    top_left: console::ConsolePoint,
-    selected: usize,
-    items: Arc<Vec<String>>,
+    pub top_left: console::ConsolePoint,
+    pub selected: usize,
+    pub items: Arc<Vec<String>>,
     selection_handler: Arc<dyn Fn(&str) -> GameEvent>,
 }
 
