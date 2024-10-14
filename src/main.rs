@@ -224,6 +224,9 @@ impl State {
                     meta::GameEvent::Back => {
                         self.console.quit(ctx);
                     }
+                    event => {
+                        println!("Unhandled event type: {:?}", event);
+                    }
                 }
             }
             meta::GameMode::InGame {
@@ -238,7 +241,8 @@ impl State {
                     *selected_point = Some(pos);
                     self.renderer.mark_dirty();
                 }
-                let new_mode = meta::in_game_keydown_handler(db, &keys, player)?;
+                let event = meta::in_game_keydown_handler(&keys);
+                let new_mode = meta::handle_in_game_event(db, event, player)?;
 
                 if let Some(meta::GameMode::WonGame) = new_mode {
                     self.mode = Box::new(meta::GameMode::WonGame);
