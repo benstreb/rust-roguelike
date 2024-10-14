@@ -1,5 +1,4 @@
 use crate::console::{self, ConsolePoint, VirtualKeyCode};
-use crate::game_object::Direction;
 use crate::profiler::TurnProfiler;
 use crate::{component, entity, game_object, system};
 use rand::SeedableRng;
@@ -81,24 +80,9 @@ pub fn handle_in_game_event(
     Ok(match event {
         GameEvent::None => None,
         GameEvent::Move(direction) => {
-            match direction {
-                Direction::West => {
-                    component::velocity::set(db, player, -1, 0)?;
-                    component::player::schedule_time(db, 1)?;
-                }
-                Direction::East => {
-                    component::velocity::set(db, player, 1, 0)?;
-                    component::player::schedule_time(db, 1)?;
-                }
-                Direction::North => {
-                    component::velocity::set(db, player, 0, -1)?;
-                    component::player::schedule_time(db, 1)?;
-                }
-                Direction::South => {
-                    component::velocity::set(db, player, 0, 1)?;
-                    component::player::schedule_time(db, 1)?;
-                }
-            }
+            let (dx, dy) = direction.delta();
+            component::velocity::set(db, player, dx, dy)?;
+            component::player::schedule_time(db, 1)?;
             None
         }
         GameEvent::Interact => {

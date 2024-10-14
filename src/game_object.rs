@@ -11,6 +11,17 @@ pub enum Direction {
     West,
 }
 
+impl Direction {
+    pub fn delta(&self) -> (i64, i64) {
+        match self {
+            Direction::West => (-1, 0),
+            Direction::East => (1, 0),
+            Direction::North => (0, -1),
+            Direction::South => (0, 1),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct WorldPoint {
     pub x: i64,

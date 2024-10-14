@@ -226,20 +226,9 @@ impl DefaultGenerator {
         dir: game_object::Direction,
         dungeon: &mut Dungeon,
     ) -> bool {
-        let dx = match dir {
-            game_object::Direction::North => 0,
-            game_object::Direction::South => 0,
-            game_object::Direction::West => 1,
-            game_object::Direction::East => -1,
-        };
-        let dy = match dir {
-            game_object::Direction::North => 1,
-            game_object::Direction::South => -1,
-            game_object::Direction::West => 0,
-            game_object::Direction::East => 0,
-        };
+        let (dx, dy) = dir.delta();
 
-        let candidate = dungeon.get(x + dx, y + dy, Tile::Unused);
+        let candidate = dungeon.get(x - dx, y - dy, Tile::Unused);
         if candidate != Tile::Floor && candidate != Tile::Corridor {
             return false;
         }
