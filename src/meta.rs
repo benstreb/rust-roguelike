@@ -48,52 +48,59 @@ pub enum GameEvent {
         is_creative: bool,
     },
     LoadGame,
-    Move(game_object::Direction),
-    Interact,
+    PassTime,
+    WinGame,
     ReturnToMainMenu,
 }
 
-pub fn in_game_keydown_handler(keycodes: &HashSet<VirtualKeyCode>) -> GameEvent {
-    use GameEvent::*;
-    keycodes
-        .iter()
-        .map(|keycode| match keycode {
-            VirtualKeyCode::Left => Move(game_object::Direction::West),
-            VirtualKeyCode::Right => Move(game_object::Direction::East),
-            VirtualKeyCode::Up => Move(game_object::Direction::North),
-            VirtualKeyCode::Down => Move(game_object::Direction::South),
-            VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter => Interact,
-            _ => None,
-        })
-        .find(|event| *event != GameEvent::None)
-        .unwrap_or(GameEvent::None)
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+enum Action {
+    Move(game_object::Direction),
+    Interact,
 }
 
-pub fn handle_in_game_event(
+pub fn in_game_keydown_handler(
     db: &rusqlite::Connection,
-    event: GameEvent,
+    keycodes: &HashSet<VirtualKeyCode>,
     player: entity::Entity,
-) -> rusqlite::Result<Option<GameMode>> {
+) -> rusqlite::Result<GameEvent> {
+    use Action::*;
+    use GameEvent::*;
+
     if component::player::outstanding_turns(db)? > 0 {
         return Ok(None);
     }
-    Ok(match event {
-        GameEvent::None => None,
-        GameEvent::Move(direction) => {
-            let (dx, dy) = direction.delta();
-            component::velocity::set(db, player, dx, dy)?;
-            component::player::schedule_time(db, 1)?;
-            None
-        }
-        GameEvent::Interact => {
-            let new_level = system::follow_transition(db)?;
-            if new_level == Some(game_object::WIN_LEVEL.to_string()) {
-                return Ok(Some(GameMode::WonGame));
+
+    keycodes
+        .iter()
+        .filter_map(|keycode| match keycode {
+            VirtualKeyCode::Left => Some(Move(game_object::Direction::West)),
+            VirtualKeyCode::Right => Some(Move(game_object::Direction::East)),
+            VirtualKeyCode::Up => Some(Move(game_object::Direction::North)),
+            VirtualKeyCode::Down => Some(Move(game_object::Direction::South)),
+            VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter => Some(Interact),
+            _ => Option::None,
+        })
+        .map(|event| match event {
+            Move(direction) => {
+                let (dx, dy) = direction.delta();
+                component::velocity::set(db, player, dx, dy)?;
+                component::player::schedule_time(db, 1)?;
+                Ok(PassTime)
             }
-            None
-        }
-        _ => None,
-    })
+            Interact => {
+                let new_level = system::follow_transition(db)?;
+                if new_level == Some(game_object::WIN_LEVEL.to_string()) {
+                    return Ok(WinGame);
+                }
+                Ok(None)
+            }
+        })
+        .find(|event| match event {
+            Ok(GameEvent::None) => false,
+            _ => true,
+        })
+        .unwrap_or(Ok(GameEvent::None))
 }
 
 pub fn won_game_keydown_handler(keycode: &HashSet<VirtualKeyCode>) -> GameEvent {

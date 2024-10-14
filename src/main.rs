@@ -230,41 +230,47 @@ impl State {
                     *selected_point = Some(pos);
                     self.renderer.mark_dirty();
                 }
-                let event = meta::in_game_keydown_handler(&keys);
-                let new_mode = meta::handle_in_game_event(db, event, player)?;
+                let event = meta::in_game_keydown_handler(db, &keys, player)?;
 
-                if let Some(meta::GameMode::WonGame) = new_mode {
-                    self.mode = Box::new(meta::GameMode::WonGame);
-                    self.renderer.mark_dirty();
-                } else if component::player::outstanding_turns(db)? > 0 {
-                    db.execute_batch("BEGIN TRANSACTION")?;
-                    let mut turn = profiler.start();
-                    system::apply_ai(db)?;
-                    turn.split("ai");
-                    system::move_actors(db)?;
-                    turn.split("movement");
-                    component::player::pass_time(db, 1)?;
-                    turn.split("time");
-                    system::apply_regen(db)?;
-                    turn.split("regen");
-                    for _ in 0..25 {
-                        game_object::generate_particles(db, 25)?;
+                match event {
+                    meta::GameEvent::None => {}
+                    meta::GameEvent::WinGame => {
+                        self.mode = Box::new(meta::GameMode::WonGame);
+                        self.renderer.mark_dirty();
                     }
-                    turn.split("particles");
-                    for _ in 0..5 {
-                        game_object::generate_enemies(db, 10)?;
+                    meta::GameEvent::PassTime => {
+                        db.execute_batch("BEGIN TRANSACTION")?;
+                        let mut turn = profiler.start();
+                        system::apply_ai(db)?;
+                        turn.split("ai");
+                        system::move_actors(db)?;
+                        turn.split("movement");
+                        component::player::pass_time(db, 1)?;
+                        turn.split("time");
+                        system::apply_regen(db)?;
+                        turn.split("regen");
+                        for _ in 0..25 {
+                            game_object::generate_particles(db, 25)?;
+                        }
+                        turn.split("particles");
+                        for _ in 0..5 {
+                            game_object::generate_enemies(db, 10)?;
+                        }
+                        turn.split("enemies");
+                        system::cull_dead(db)?;
+                        system::cull_ephemeral(db)?;
+                        turn.split("culling");
+                        let turn_num = component::player::turns_passed(db)?;
+
+                        let actor_count = component::actor::count(db)?;
+                        db.execute_batch("COMMIT TRANSACTION")?;
+
+                        profiler.end(db, turn_num, turn, actor_count)?;
+                        self.renderer.mark_dirty();
                     }
-                    turn.split("enemies");
-                    system::cull_dead(db)?;
-                    system::cull_ephemeral(db)?;
-                    turn.split("culling");
-                    let turn_num = component::player::turns_passed(db)?;
-
-                    let actor_count = component::actor::count(db)?;
-                    db.execute_batch("COMMIT TRANSACTION")?;
-
-                    profiler.end(db, turn_num, turn, actor_count)?;
-                    self.renderer.mark_dirty();
+                    _ => {
+                        println!("Unexpected event in main game event handler: {:?}", event);
+                    }
                 }
             }
             meta::GameMode::WonGame => match meta::won_game_keydown_handler(&keys) {
