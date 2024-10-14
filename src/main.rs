@@ -267,10 +267,16 @@ impl State {
                     self.renderer.mark_dirty();
                 }
             }
-            meta::GameMode::WonGame => {
-                meta::won_game_keydown_handler(&keys, &mut self.mode);
-                self.renderer.mark_dirty();
-            }
+            meta::GameMode::WonGame => match meta::won_game_keydown_handler(&keys) {
+                meta::GameEvent::None => {}
+                meta::GameEvent::ReturnToMainMenu => {
+                    *self.mode = meta::GameMode::MainMenu(meta::main_menu());
+                    self.renderer.mark_dirty();
+                }
+                _ => {
+                    println!("Unexpected event in won game state")
+                }
+            },
         }
         anyhow::Result::Ok(())
     }

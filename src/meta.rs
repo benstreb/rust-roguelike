@@ -51,6 +51,7 @@ pub enum GameEvent {
     LoadGame,
     Move(game_object::Direction),
     Interact,
+    ReturnToMainMenu,
 }
 
 pub fn in_game_keydown_handler(keycodes: &HashSet<VirtualKeyCode>) -> GameEvent {
@@ -111,10 +112,11 @@ pub fn handle_in_game_event(
     })
 }
 
-pub fn won_game_keydown_handler(keycode: &HashSet<VirtualKeyCode>, mode: &mut GameMode) {
+pub fn won_game_keydown_handler(keycode: &HashSet<VirtualKeyCode>) -> GameEvent {
     if keycode.len() > 0 {
-        *mode = GameMode::MainMenu(main_menu())
+        return GameEvent::ReturnToMainMenu;
     }
+    GameEvent::None
 }
 
 #[derive(Clone)]
