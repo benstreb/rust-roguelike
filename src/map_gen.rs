@@ -1,4 +1,4 @@
-use crate::meta;
+use crate::{game_object, meta};
 use rand::{seq::SliceRandom, Rng};
 use rusqlite::{types::FromSql, ToSql};
 
@@ -124,14 +124,6 @@ pub struct Rect {
     height: i64,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Direction {
-    North,
-    South,
-    East,
-    West,
-}
-
 const MIN_ROOM_SIZE: i64 = 3;
 const MAX_ROOM_SIZE: i64 = 6;
 const MIN_CORRIDOR_LENGTH: i64 = 3;
@@ -169,7 +161,7 @@ impl DefaultGenerator {
             rng,
             dungeon.width / 2,
             dungeon.height / 2,
-            Direction::North,
+            game_object::Direction::North,
             true,
             dungeon,
         ) {
@@ -197,10 +189,10 @@ impl DefaultGenerator {
 
     fn create_feature(&mut self, rng: &mut meta::GameRng, dungeon: &mut Dungeon) -> bool {
         let directions = [
-            Direction::North,
-            Direction::South,
-            Direction::East,
-            Direction::West,
+            game_object::Direction::North,
+            game_object::Direction::South,
+            game_object::Direction::East,
+            game_object::Direction::West,
         ];
         for _ in 0..1000 {
             if self.exits.is_empty() {
@@ -231,20 +223,20 @@ impl DefaultGenerator {
         rng: &mut meta::GameRng,
         x: i64,
         y: i64,
-        dir: Direction,
+        dir: game_object::Direction,
         dungeon: &mut Dungeon,
     ) -> bool {
         let dx = match dir {
-            Direction::North => 0,
-            Direction::South => 0,
-            Direction::West => 1,
-            Direction::East => -1,
+            game_object::Direction::North => 0,
+            game_object::Direction::South => 0,
+            game_object::Direction::West => 1,
+            game_object::Direction::East => -1,
         };
         let dy = match dir {
-            Direction::North => 1,
-            Direction::South => -1,
-            Direction::West => 0,
-            Direction::East => 0,
+            game_object::Direction::North => 1,
+            game_object::Direction::South => -1,
+            game_object::Direction::West => 0,
+            game_object::Direction::East => 0,
         };
 
         let candidate = dungeon.get(x + dx, y + dy, Tile::Unused);
@@ -278,7 +270,7 @@ impl DefaultGenerator {
         rng: &mut meta::GameRng,
         x: i64,
         y: i64,
-        dir: Direction,
+        dir: game_object::Direction,
         first_room: bool,
         dungeon: &mut Dungeon,
     ) -> bool {
@@ -287,7 +279,7 @@ impl DefaultGenerator {
         if self.place_rect(room, Tile::Floor, dungeon) {
             self.rooms.push(room);
 
-            if dir != Direction::South || first_room {
+            if dir != game_object::Direction::South || first_room {
                 // north side
                 self.exits.push(Rect {
                     x: room.x,
@@ -296,7 +288,7 @@ impl DefaultGenerator {
                     height: 1,
                 });
             }
-            if dir != Direction::North || first_room {
+            if dir != game_object::Direction::North || first_room {
                 // south side
                 self.exits.push(Rect {
                     x: room.x,
@@ -305,7 +297,7 @@ impl DefaultGenerator {
                     height: 1,
                 });
             }
-            if dir != Direction::East || first_room {
+            if dir != game_object::Direction::East || first_room {
                 // west side
                 self.exits.push(Rect {
                     x: room.x - 1,
@@ -314,7 +306,7 @@ impl DefaultGenerator {
                     height: room.height,
                 });
             }
-            if dir != Direction::West || first_room {
+            if dir != game_object::Direction::West || first_room {
                 // east side
                 self.exits.push(Rect {
                     x: room.x + room.width,
@@ -335,13 +327,13 @@ impl DefaultGenerator {
         rng: &mut meta::GameRng,
         x: i64,
         y: i64,
-        dir: Direction,
+        dir: game_object::Direction,
         dungeon: &mut Dungeon,
     ) -> bool {
         let corridor = self.random_corridor(rng, (x, y), dir);
 
         if self.place_rect(corridor, Tile::Corridor, dungeon) {
-            if dir != Direction::South && corridor.width != 1 {
+            if dir != game_object::Direction::South && corridor.width != 1 {
                 // north side
                 self.exits.push(Rect {
                     x: corridor.x,
@@ -350,7 +342,7 @@ impl DefaultGenerator {
                     height: 1,
                 });
             }
-            if dir != Direction::North && corridor.width != 1 {
+            if dir != game_object::Direction::North && corridor.width != 1 {
                 // south side
                 self.exits.push(Rect {
                     x: corridor.x,
@@ -359,7 +351,7 @@ impl DefaultGenerator {
                     height: 1,
                 });
             }
-            if dir != Direction::East && corridor.height != 1 {
+            if dir != game_object::Direction::East && corridor.height != 1 {
                 // west side
                 self.exits.push(Rect {
                     x: corridor.x - 1,
@@ -368,7 +360,7 @@ impl DefaultGenerator {
                     height: corridor.height,
                 });
             }
-            if dir != Direction::West && corridor.height != 1 {
+            if dir != game_object::Direction::West && corridor.height != 1 {
                 // east side
                 self.exits.push(Rect {
                     x: corridor.x + corridor.width,
@@ -437,7 +429,12 @@ impl DefaultGenerator {
         }
     }
 
-    fn random_room(&self, rng: &mut meta::GameRng, anchor: (i64, i64), dir: Direction) -> Rect {
+    fn random_room(
+        &self,
+        rng: &mut meta::GameRng,
+        anchor: (i64, i64),
+        dir: game_object::Direction,
+    ) -> Rect {
         let (x, y) = anchor;
 
         let mut room = Rect {
@@ -448,19 +445,19 @@ impl DefaultGenerator {
         };
 
         match dir {
-            Direction::North => {
+            game_object::Direction::North => {
                 room.x = x - room.width / 2;
                 room.y = y - room.height;
             }
-            Direction::South => {
+            game_object::Direction::South => {
                 room.x = x - room.width / 2;
                 room.y = y + 1;
             }
-            Direction::West => {
+            game_object::Direction::West => {
                 room.x = x - room.width;
                 room.y = y - room.height / 2;
             }
-            Direction::East => {
+            game_object::Direction::East => {
                 room.x = x + 1;
                 room.y = y - room.height / 2;
             }
@@ -469,7 +466,12 @@ impl DefaultGenerator {
         room
     }
 
-    fn random_corridor(&self, rng: &mut meta::GameRng, anchor: (i64, i64), dir: Direction) -> Rect {
+    fn random_corridor(
+        &self,
+        rng: &mut meta::GameRng,
+        anchor: (i64, i64),
+        dir: game_object::Direction,
+    ) -> Rect {
         let (x, y) = anchor;
 
         let mut corridor = Rect {
@@ -485,24 +487,24 @@ impl DefaultGenerator {
             corridor.height = 1;
 
             match dir {
-                Direction::North => {
+                game_object::Direction::North => {
                     corridor.y = y - 1;
                     if rng.gen_bool(0.5) {
                         // west
                         corridor.x = x - corridor.width + 1;
                     }
                 }
-                Direction::South => {
+                game_object::Direction::South => {
                     corridor.y = y + 1;
                     if rng.gen_bool(0.5) {
                         // west
                         corridor.x = x - corridor.width + 1;
                     }
                 }
-                Direction::West => {
+                game_object::Direction::West => {
                     corridor.x = x - corridor.width;
                 }
-                Direction::East => {
+                game_object::Direction::East => {
                     corridor.x = x + 1;
                 }
             }
@@ -512,20 +514,20 @@ impl DefaultGenerator {
             corridor.height = rng.gen_range(MIN_CORRIDOR_LENGTH..=MAX_CORRIDOR_LENGTH);
 
             match dir {
-                Direction::North => {
+                game_object::Direction::North => {
                     corridor.y = y - corridor.height;
                 }
-                Direction::South => {
+                game_object::Direction::South => {
                     corridor.y = y + 1;
                 }
-                Direction::West => {
+                game_object::Direction::West => {
                     corridor.x = x - 1;
                     if rng.gen_bool(0.5) {
                         // north
                         corridor.y = y - corridor.height + 1;
                     }
                 }
-                Direction::East => {
+                game_object::Direction::East => {
                     corridor.x = x + 1;
                     if rng.gen_bool(0.5) {
                         // north

@@ -3,6 +3,14 @@ use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, 
 
 pub const WIN_LEVEL: &str = "win";
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Direction {
+    North,
+    South,
+    East,
+    West,
+}
+
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct WorldPoint {
     pub x: i64,
