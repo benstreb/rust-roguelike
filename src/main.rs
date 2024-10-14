@@ -196,30 +196,18 @@ impl State {
                     meta::GameEvent::Refresh => {
                         self.renderer.mark_dirty();
                     }
-                    meta::GameEvent::Selected(meta::NEW_GAME) => {
+                    meta::GameEvent::NewGame { is_creative } => {
                         self.mode = Box::new(new_game(
                             self.rng,
                             meta::SAVE_FILE_NAME,
-                            false,
+                            is_creative,
                             map_gen::DefaultGenerator::new(),
                         )?);
                         self.renderer.mark_dirty();
                     }
-                    meta::GameEvent::Selected(meta::LOAD_GAME) => {
+                    meta::GameEvent::LoadGame => {
                         self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
                         self.renderer.mark_dirty();
-                    }
-                    meta::GameEvent::Selected(meta::CREATIVE_MODE) => {
-                        self.mode = Box::new(new_game(
-                            self.rng,
-                            meta::SAVE_FILE_NAME,
-                            true,
-                            map_gen::EmptyGenerator,
-                        )?);
-                        self.renderer.mark_dirty();
-                    }
-                    meta::GameEvent::Selected(selected) => {
-                        println!("Unexpected menu item '{}'. This is a bug", selected)
                     }
                     meta::GameEvent::Back => {
                         self.console.quit(ctx);

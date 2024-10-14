@@ -4,6 +4,7 @@ use crate::profiler::TurnProfiler;
 use crate::{component, entity, game_object, system};
 use rand::SeedableRng;
 use std::collections::HashSet;
+use std::fmt::Debug;
 use std::sync::{Arc, LazyLock};
 
 pub type GameRng = rand_pcg::Pcg64Mcg;
@@ -38,18 +39,21 @@ pub enum GameMode {
     WonGame,
 }
 
-#[derive(Debug, Default, PartialEq, Eq)]
-pub enum GameEvent<'a> {
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+pub enum GameEvent {
     #[default]
     None,
     Refresh,
-    Selected(&'a str),
     Back,
+    NewGame {
+        is_creative: bool,
+    },
+    LoadGame,
     Move(game_object::Direction),
     Interact,
 }
 
-pub fn in_game_keydown_handler(keycodes: &HashSet<VirtualKeyCode>) -> GameEvent<'static> {
+pub fn in_game_keydown_handler(keycodes: &HashSet<VirtualKeyCode>) -> GameEvent {
     use GameEvent::*;
     keycodes
         .iter()
@@ -198,17 +202,25 @@ impl Renderer {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Menu {
     top_left: console::ConsolePoint,
     selected: usize,
     items: Arc<Vec<String>>,
+    selection_handler: Arc<dyn Fn(&str) -> GameEvent>,
 }
 
-pub fn keydown_handler<'a>(
-    keycodes: &HashSet<VirtualKeyCode>,
-    menu: &'a mut Menu,
-) -> GameEvent<'a> {
+impl Debug for Menu {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Menu")
+            .field("top_left", &self.top_left)
+            .field("selected", &self.selected)
+            .field("items", &self.items)
+            .finish()
+    }
+}
+
+pub fn keydown_handler<'a>(keycodes: &HashSet<VirtualKeyCode>, menu: &'a mut Menu) -> GameEvent {
     for keycode in keycodes {
         match keycode {
             VirtualKeyCode::Left | VirtualKeyCode::Up => {
@@ -220,7 +232,7 @@ pub fn keydown_handler<'a>(
                 return GameEvent::Refresh;
             }
             VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter | VirtualKeyCode::Return => {
-                return GameEvent::Selected(&menu.items[menu.selected]);
+                return (menu.selection_handler)(&menu.items[menu.selected]);
             }
             VirtualKeyCode::Escape => return GameEvent::Back,
             _ => {}
@@ -237,10 +249,19 @@ pub fn main_menu() -> Menu {
             LOAD_GAME.to_string(),
         ])
     });
+    fn main_menu_handler(selection: &str) -> GameEvent {
+        match selection {
+            CREATIVE_MODE => GameEvent::NewGame { is_creative: true },
+            NEW_GAME => GameEvent::NewGame { is_creative: false },
+            LOAD_GAME => GameEvent::LoadGame,
+            _ => unreachable!("Unexpected selection {:?} in main_menu_handler", selection),
+        }
+    }
     Menu {
         top_left: ConsolePoint { x: 0, y: 0 },
         selected: 0,
         items: MAIN_MENU_ITEMS.clone(),
+        selection_handler: Arc::new(main_menu_handler),
     }
 }
 
