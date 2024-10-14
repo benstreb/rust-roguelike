@@ -37,6 +37,13 @@ pub enum GameMode {
     WonGame,
 }
 
+pub enum GameEvent<'a> {
+    None,
+    Refresh,
+    Selected(&'a str),
+    Back,
+}
+
 pub fn in_game_keydown_handler(
     db: &rusqlite::Connection,
     keycodes: &HashSet<VirtualKeyCode>,
@@ -173,35 +180,28 @@ pub struct Menu {
     items: Arc<Vec<String>>,
 }
 
-pub enum MenuResult<'a> {
-    None,
-    Updated,
-    Selected(&'a str),
-    Back,
-}
-
 pub fn keydown_handler<'a>(
     keycodes: &HashSet<VirtualKeyCode>,
     menu: &'a mut Menu,
-) -> MenuResult<'a> {
+) -> GameEvent<'a> {
     for keycode in keycodes {
         match keycode {
             VirtualKeyCode::Left | VirtualKeyCode::Up => {
                 menu.add(-1);
-                return MenuResult::Updated;
+                return GameEvent::Refresh;
             }
             VirtualKeyCode::Right | VirtualKeyCode::Down => {
                 menu.add(1);
-                return MenuResult::Updated;
+                return GameEvent::Refresh;
             }
             VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter | VirtualKeyCode::Return => {
-                return MenuResult::Selected(&menu.items[menu.selected]);
+                return GameEvent::Selected(&menu.items[menu.selected]);
             }
-            VirtualKeyCode::Escape => return MenuResult::Back,
+            VirtualKeyCode::Escape => return GameEvent::Back,
             _ => {}
         }
     }
-    MenuResult::None
+    GameEvent::None
 }
 
 pub fn main_menu() -> Menu {

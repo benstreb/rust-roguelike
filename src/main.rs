@@ -192,11 +192,11 @@ impl State {
             meta::GameMode::MainMenu(ref mut menu) => {
                 let selected = meta::keydown_handler(&keys, menu);
                 match selected {
-                    meta::MenuResult::None => {}
-                    meta::MenuResult::Updated => {
+                    meta::GameEvent::None => {}
+                    meta::GameEvent::Refresh => {
                         self.renderer.mark_dirty();
                     }
-                    meta::MenuResult::Selected(meta::NEW_GAME) => {
+                    meta::GameEvent::Selected(meta::NEW_GAME) => {
                         self.mode = Box::new(new_game(
                             self.rng,
                             meta::SAVE_FILE_NAME,
@@ -205,11 +205,11 @@ impl State {
                         )?);
                         self.renderer.mark_dirty();
                     }
-                    meta::MenuResult::Selected(meta::LOAD_GAME) => {
+                    meta::GameEvent::Selected(meta::LOAD_GAME) => {
                         self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
                         self.renderer.mark_dirty();
                     }
-                    meta::MenuResult::Selected(meta::CREATIVE_MODE) => {
+                    meta::GameEvent::Selected(meta::CREATIVE_MODE) => {
                         self.mode = Box::new(new_game(
                             self.rng,
                             meta::SAVE_FILE_NAME,
@@ -218,10 +218,10 @@ impl State {
                         )?);
                         self.renderer.mark_dirty();
                     }
-                    meta::MenuResult::Selected(selected) => {
+                    meta::GameEvent::Selected(selected) => {
                         println!("Unexpected menu item '{}'. This is a bug", selected)
                     }
-                    meta::MenuResult::Back => {
+                    meta::GameEvent::Back => {
                         self.console.quit(ctx);
                     }
                 }
