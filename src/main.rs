@@ -188,7 +188,18 @@ impl ggez::event::EventHandler<ggez::GameError> for State {
 impl State {
     fn tick(&mut self, ctx: &mut ggez::Context) -> anyhow::Result<()> {
         // Game loop.
+        let clicks = self.console.clicks(ctx);
+        let click_event = meta::click_handler(&clicks);
+        match (click_event, &mut *self.mode) {
+            (meta::GameEvent::Click(pos), meta::GameMode::InGame { selected_point, .. }) => {
+                *selected_point = Some(pos);
+                self.renderer.mark_dirty();
+            }
+            _ => {}
+        }
+
         let keys = self.console.key_presses(ctx);
+
         match *self.mode {
             meta::GameMode::MainMenu(ref mut menu) => {
                 let selected = meta::keydown_handler(&keys, menu);
@@ -223,13 +234,8 @@ impl State {
                 player,
                 mut profiler,
                 is_creative: _is_creative,
-                ref mut selected_point,
+                selected_point: _,
             } => {
-                let clicks = self.console.clicks(ctx);
-                if let Some(ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0) {
-                    *selected_point = Some(pos);
-                    self.renderer.mark_dirty();
-                }
                 let event = meta::in_game_keydown_handler(db, &keys, player)?;
 
                 match event {

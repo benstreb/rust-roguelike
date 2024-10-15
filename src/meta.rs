@@ -51,12 +51,21 @@ pub enum GameEvent {
     PassTime,
     WinGame,
     ReturnToMainMenu,
+    Click(ConsolePoint),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 enum Action {
     Move(game_object::Direction),
     Interact,
+}
+
+pub fn click_handler(clicks: &HashSet<console::ClickEvent>) -> GameEvent {
+    if let Some(console::ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0) {
+        GameEvent::Click(*pos)
+    } else {
+        GameEvent::None
+    }
 }
 
 pub fn in_game_keydown_handler(
