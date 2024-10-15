@@ -39,9 +39,10 @@ pub enum GameMode {
 }
 
 impl GameMode {
-    pub fn keydown_handler(
+    pub fn input_handler(
         &mut self,
         keycodes: &HashSet<VirtualKeyCode>,
+        clicks: &HashSet<console::ClickEvent>,
     ) -> rusqlite::Result<GameEvent> {
         use Action::*;
         use GameEvent::*;
@@ -56,6 +57,11 @@ impl GameMode {
                 }
             }
             GameMode::InGame { db, player, .. } => {
+                if let Some(console::ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0)
+                {
+                    return Ok(GameEvent::Click(*pos));
+                }
+
                 if component::player::outstanding_turns(db)? > 0 {
                     return Ok(None);
                 }
@@ -115,14 +121,6 @@ pub enum GameEvent {
 enum Action {
     Move(game_object::Direction),
     Interact,
-}
-
-pub fn click_handler(clicks: &HashSet<console::ClickEvent>) -> GameEvent {
-    if let Some(console::ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0) {
-        GameEvent::Click(*pos)
-    } else {
-        GameEvent::None
-    }
 }
 
 #[derive(Clone)]

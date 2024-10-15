@@ -189,17 +189,8 @@ impl State {
         use crate::meta::{GameEvent::*, GameMode::*};
         // Game loop.
         let clicks = self.console.clicks(ctx);
-        let click_event = meta::click_handler(&clicks);
-        match (click_event, &mut *self.mode) {
-            (Click(pos), InGame { selected_point, .. }) => {
-                *selected_point = Some(pos);
-                self.renderer.mark_dirty();
-            }
-            _ => {}
-        }
-
         let keys = self.console.key_presses(ctx);
-        let event = self.mode.keydown_handler(&keys)?;
+        let event = self.mode.input_handler(&keys, &clicks)?;
 
         match (event, &mut *self.mode) {
             (None, _) => {}
@@ -228,6 +219,10 @@ impl State {
             }
             (WinGame, InGame { .. }) => {
                 self.mode = Box::new(WonGame);
+                self.renderer.mark_dirty();
+            }
+            (Click(pos), InGame { selected_point, .. }) => {
+                *selected_point = Some(pos);
                 self.renderer.mark_dirty();
             }
             (
