@@ -9,7 +9,6 @@ mod renderer;
 mod system;
 
 use crate::console::Console;
-use console::ClickEvent;
 use ggez::{conf::WindowMode, ContextBuilder, GameResult};
 use map_gen::Tile;
 use profiler::TurnProfiler;
@@ -199,87 +198,81 @@ impl State {
         }
 
         let keys = self.console.key_presses(ctx);
+        let event = self.mode.keydown_handler(&keys)?;
 
         match *self.mode {
-            meta::GameMode::MainMenu(ref mut menu) => {
-                let selected = meta::keydown_handler(&keys, menu);
-                match selected {
-                    meta::GameEvent::None => {}
-                    meta::GameEvent::Refresh => {
-                        self.renderer.mark_dirty();
-                    }
-                    meta::GameEvent::NewGame { is_creative } => {
-                        self.mode = Box::new(new_game(
-                            self.rng,
-                            meta::SAVE_FILE_NAME,
-                            is_creative,
-                            map_gen::DefaultGenerator::new(),
-                        )?);
-                        self.renderer.mark_dirty();
-                    }
-                    meta::GameEvent::LoadGame => {
-                        self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
-                        self.renderer.mark_dirty();
-                    }
-                    meta::GameEvent::Back => {
-                        self.console.quit(ctx);
-                    }
-                    event => {
-                        println!("Unhandled event type: {:?}", event);
-                    }
+            meta::GameMode::MainMenu(_) => match event {
+                meta::GameEvent::None => {}
+                meta::GameEvent::Refresh => {
+                    self.renderer.mark_dirty();
                 }
-            }
+                meta::GameEvent::NewGame { is_creative } => {
+                    self.mode = Box::new(new_game(
+                        self.rng,
+                        meta::SAVE_FILE_NAME,
+                        is_creative,
+                        map_gen::DefaultGenerator::new(),
+                    )?);
+                    self.renderer.mark_dirty();
+                }
+                meta::GameEvent::LoadGame => {
+                    self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
+                    self.renderer.mark_dirty();
+                }
+                meta::GameEvent::Back => {
+                    self.console.quit(ctx);
+                }
+                event => {
+                    println!("Unhandled event type: {:?}", event);
+                }
+            },
             meta::GameMode::InGame {
                 ref db,
-                player,
+                player: _,
                 mut profiler,
                 is_creative: _is_creative,
                 selected_point: _,
-            } => {
-                let event = meta::in_game_keydown_handler(db, &keys, player)?;
-
-                match event {
-                    meta::GameEvent::None => {}
-                    meta::GameEvent::WinGame => {
-                        self.mode = Box::new(meta::GameMode::WonGame);
-                        self.renderer.mark_dirty();
-                    }
-                    meta::GameEvent::PassTime => {
-                        db.execute_batch("BEGIN TRANSACTION")?;
-                        let mut turn = profiler.start();
-                        system::apply_ai(db)?;
-                        turn.split("ai");
-                        system::move_actors(db)?;
-                        turn.split("movement");
-                        component::player::pass_time(db, 1)?;
-                        turn.split("time");
-                        system::apply_regen(db)?;
-                        turn.split("regen");
-                        for _ in 0..25 {
-                            game_object::generate_particles(db, 25)?;
-                        }
-                        turn.split("particles");
-                        for _ in 0..5 {
-                            game_object::generate_enemies(db, 10)?;
-                        }
-                        turn.split("enemies");
-                        system::cull_dead(db)?;
-                        system::cull_ephemeral(db)?;
-                        turn.split("culling");
-                        let turn_num = component::player::turns_passed(db)?;
-
-                        let actor_count = component::actor::count(db)?;
-                        db.execute_batch("COMMIT TRANSACTION")?;
-
-                        profiler.end(db, turn_num, turn, actor_count)?;
-                        self.renderer.mark_dirty();
-                    }
-                    _ => {
-                        println!("Unexpected event in main game event handler: {:?}", event);
-                    }
+            } => match event {
+                meta::GameEvent::None => {}
+                meta::GameEvent::WinGame => {
+                    self.mode = Box::new(meta::GameMode::WonGame);
+                    self.renderer.mark_dirty();
                 }
-            }
-            meta::GameMode::WonGame => match meta::won_game_keydown_handler(&keys) {
+                meta::GameEvent::PassTime => {
+                    db.execute_batch("BEGIN TRANSACTION")?;
+                    let mut turn = profiler.start();
+                    system::apply_ai(db)?;
+                    turn.split("ai");
+                    system::move_actors(db)?;
+                    turn.split("movement");
+                    component::player::pass_time(db, 1)?;
+                    turn.split("time");
+                    system::apply_regen(db)?;
+                    turn.split("regen");
+                    for _ in 0..25 {
+                        game_object::generate_particles(db, 25)?;
+                    }
+                    turn.split("particles");
+                    for _ in 0..5 {
+                        game_object::generate_enemies(db, 10)?;
+                    }
+                    turn.split("enemies");
+                    system::cull_dead(db)?;
+                    system::cull_ephemeral(db)?;
+                    turn.split("culling");
+                    let turn_num = component::player::turns_passed(db)?;
+
+                    let actor_count = component::actor::count(db)?;
+                    db.execute_batch("COMMIT TRANSACTION")?;
+
+                    profiler.end(db, turn_num, turn, actor_count)?;
+                    self.renderer.mark_dirty();
+                }
+                _ => {
+                    println!("Unexpected event in main game event handler: {:?}", event);
+                }
+            },
+            meta::GameMode::WonGame => match event {
                 meta::GameEvent::None => {}
                 meta::GameEvent::ReturnToMainMenu => {
                     *self.mode = meta::GameMode::MainMenu(meta::main_menu());

@@ -38,6 +38,63 @@ pub enum GameMode {
     WonGame,
 }
 
+impl GameMode {
+    pub fn keydown_handler(
+        &mut self,
+        keycodes: &HashSet<VirtualKeyCode>,
+    ) -> rusqlite::Result<GameEvent> {
+        use Action::*;
+        use GameEvent::*;
+
+        match self {
+            GameMode::MainMenu(menu) => Ok(menu.keydown_handler(keycodes)),
+            GameMode::WonGame => {
+                if keycodes.len() > 0 {
+                    Ok(GameEvent::ReturnToMainMenu)
+                } else {
+                    Ok(GameEvent::None)
+                }
+            }
+            GameMode::InGame { db, player, .. } => {
+                if component::player::outstanding_turns(db)? > 0 {
+                    return Ok(None);
+                }
+
+                keycodes
+                    .iter()
+                    .filter_map(|keycode| match keycode {
+                        VirtualKeyCode::Left => Some(Move(game_object::Direction::West)),
+                        VirtualKeyCode::Right => Some(Move(game_object::Direction::East)),
+                        VirtualKeyCode::Up => Some(Move(game_object::Direction::North)),
+                        VirtualKeyCode::Down => Some(Move(game_object::Direction::South)),
+                        VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter => Some(Interact),
+                        _ => Option::None,
+                    })
+                    .map(|event| match event {
+                        Move(direction) => {
+                            let (dx, dy) = direction.delta();
+                            component::velocity::set(db, *player, dx, dy)?;
+                            component::player::schedule_time(db, 1)?;
+                            Ok(PassTime)
+                        }
+                        Interact => {
+                            let new_level = system::follow_transition(db)?;
+                            if new_level == Some(game_object::WIN_LEVEL.to_string()) {
+                                return Ok(WinGame);
+                            }
+                            Ok(None)
+                        }
+                    })
+                    .find(|event| match event {
+                        Ok(GameEvent::None) => false,
+                        _ => true,
+                    })
+                    .unwrap_or(Ok(GameEvent::None))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
 pub enum GameEvent {
     #[default]
@@ -68,57 +125,6 @@ pub fn click_handler(clicks: &HashSet<console::ClickEvent>) -> GameEvent {
     }
 }
 
-pub fn in_game_keydown_handler(
-    db: &rusqlite::Connection,
-    keycodes: &HashSet<VirtualKeyCode>,
-    player: entity::Entity,
-) -> rusqlite::Result<GameEvent> {
-    use Action::*;
-    use GameEvent::*;
-
-    if component::player::outstanding_turns(db)? > 0 {
-        return Ok(None);
-    }
-
-    keycodes
-        .iter()
-        .filter_map(|keycode| match keycode {
-            VirtualKeyCode::Left => Some(Move(game_object::Direction::West)),
-            VirtualKeyCode::Right => Some(Move(game_object::Direction::East)),
-            VirtualKeyCode::Up => Some(Move(game_object::Direction::North)),
-            VirtualKeyCode::Down => Some(Move(game_object::Direction::South)),
-            VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter => Some(Interact),
-            _ => Option::None,
-        })
-        .map(|event| match event {
-            Move(direction) => {
-                let (dx, dy) = direction.delta();
-                component::velocity::set(db, player, dx, dy)?;
-                component::player::schedule_time(db, 1)?;
-                Ok(PassTime)
-            }
-            Interact => {
-                let new_level = system::follow_transition(db)?;
-                if new_level == Some(game_object::WIN_LEVEL.to_string()) {
-                    return Ok(WinGame);
-                }
-                Ok(None)
-            }
-        })
-        .find(|event| match event {
-            Ok(GameEvent::None) => false,
-            _ => true,
-        })
-        .unwrap_or(Ok(GameEvent::None))
-}
-
-pub fn won_game_keydown_handler(keycode: &HashSet<VirtualKeyCode>) -> GameEvent {
-    if keycode.len() > 0 {
-        return GameEvent::ReturnToMainMenu;
-    }
-    GameEvent::None
-}
-
 #[derive(Clone)]
 pub struct Menu {
     pub top_left: console::ConsolePoint,
@@ -137,25 +143,27 @@ impl Debug for Menu {
     }
 }
 
-pub fn keydown_handler<'a>(keycodes: &HashSet<VirtualKeyCode>, menu: &'a mut Menu) -> GameEvent {
-    for keycode in keycodes {
-        match keycode {
-            VirtualKeyCode::Left | VirtualKeyCode::Up => {
-                menu.add(-1);
-                return GameEvent::Refresh;
+impl Menu {
+    pub fn keydown_handler(&mut self, keycodes: &HashSet<VirtualKeyCode>) -> GameEvent {
+        for keycode in keycodes {
+            match keycode {
+                VirtualKeyCode::Left | VirtualKeyCode::Up => {
+                    self.add(-1);
+                    return GameEvent::Refresh;
+                }
+                VirtualKeyCode::Right | VirtualKeyCode::Down => {
+                    self.add(1);
+                    return GameEvent::Refresh;
+                }
+                VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter | VirtualKeyCode::Return => {
+                    return (self.selection_handler)(&self.items[self.selected]);
+                }
+                VirtualKeyCode::Escape => return GameEvent::Back,
+                _ => {}
             }
-            VirtualKeyCode::Right | VirtualKeyCode::Down => {
-                menu.add(1);
-                return GameEvent::Refresh;
-            }
-            VirtualKeyCode::Space | VirtualKeyCode::NumpadEnter | VirtualKeyCode::Return => {
-                return (menu.selection_handler)(&menu.items[menu.selected]);
-            }
-            VirtualKeyCode::Escape => return GameEvent::Back,
-            _ => {}
         }
+        GameEvent::None
     }
-    GameEvent::None
 }
 
 pub fn main_menu() -> Menu {
