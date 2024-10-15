@@ -186,11 +186,12 @@ impl ggez::event::EventHandler<ggez::GameError> for State {
 
 impl State {
     fn tick(&mut self, ctx: &mut ggez::Context) -> anyhow::Result<()> {
+        use crate::meta::{GameEvent::*, GameMode::*};
         // Game loop.
         let clicks = self.console.clicks(ctx);
         let click_event = meta::click_handler(&clicks);
         match (click_event, &mut *self.mode) {
-            (meta::GameEvent::Click(pos), meta::GameMode::InGame { selected_point, .. }) => {
+            (Click(pos), InGame { selected_point, .. }) => {
                 *selected_point = Some(pos);
                 self.renderer.mark_dirty();
             }
@@ -201,12 +202,12 @@ impl State {
         let event = self.mode.keydown_handler(&keys)?;
 
         match *self.mode {
-            meta::GameMode::MainMenu(_) => match event {
-                meta::GameEvent::None => {}
-                meta::GameEvent::Refresh => {
+            MainMenu(_) => match event {
+                None => {}
+                Refresh => {
                     self.renderer.mark_dirty();
                 }
-                meta::GameEvent::NewGame { is_creative } => {
+                NewGame { is_creative } => {
                     self.mode = Box::new(new_game(
                         self.rng,
                         meta::SAVE_FILE_NAME,
@@ -219,30 +220,30 @@ impl State {
                     )?);
                     self.renderer.mark_dirty();
                 }
-                meta::GameEvent::LoadGame => {
+                LoadGame => {
                     self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
                     self.renderer.mark_dirty();
                 }
-                meta::GameEvent::Back => {
+                Back => {
                     self.console.quit(ctx);
                 }
                 event => {
                     println!("Unhandled event type: {:?}", event);
                 }
             },
-            meta::GameMode::InGame {
+            InGame {
                 ref db,
                 player: _,
                 mut profiler,
                 is_creative: _is_creative,
                 selected_point: _,
             } => match event {
-                meta::GameEvent::None => {}
-                meta::GameEvent::WinGame => {
-                    self.mode = Box::new(meta::GameMode::WonGame);
+                None => {}
+                WinGame => {
+                    self.mode = Box::new(WonGame);
                     self.renderer.mark_dirty();
                 }
-                meta::GameEvent::PassTime => {
+                PassTime => {
                     db.execute_batch("BEGIN TRANSACTION")?;
                     let mut turn = profiler.start();
                     system::apply_ai(db)?;
@@ -276,10 +277,10 @@ impl State {
                     println!("Unexpected event in main game event handler: {:?}", event);
                 }
             },
-            meta::GameMode::WonGame => match event {
-                meta::GameEvent::None => {}
-                meta::GameEvent::ReturnToMainMenu => {
-                    *self.mode = meta::GameMode::MainMenu(meta::main_menu());
+            WonGame => match event {
+                None => {}
+                ReturnToMainMenu => {
+                    *self.mode = MainMenu(meta::main_menu());
                     self.renderer.mark_dirty();
                 }
                 _ => {
