@@ -201,92 +201,81 @@ impl State {
         let keys = self.console.key_presses(ctx);
         let event = self.mode.keydown_handler(&keys)?;
 
-        match *self.mode {
-            MainMenu(_) => match event {
-                None => {}
-                Refresh => {
-                    self.renderer.mark_dirty();
+        match (event, &mut *self.mode) {
+            (None, _) => {}
+            (Refresh, _) => {
+                self.renderer.mark_dirty();
+            }
+            (NewGame { is_creative }, _) => {
+                self.mode = Box::new(new_game(
+                    self.rng,
+                    meta::SAVE_FILE_NAME,
+                    is_creative,
+                    if is_creative {
+                        Box::new(map_gen::EmptyGenerator)
+                    } else {
+                        Box::new(map_gen::DefaultGenerator::new())
+                    },
+                )?);
+                self.renderer.mark_dirty();
+            }
+            (LoadGame, _) => {
+                self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
+                self.renderer.mark_dirty();
+            }
+            (Back, MainMenu(_)) => {
+                self.console.quit(ctx);
+            }
+            (WinGame, InGame { .. }) => {
+                self.mode = Box::new(WonGame);
+                self.renderer.mark_dirty();
+            }
+            (
+                PassTime,
+                InGame {
+                    ref db,
+                    player: _,
+                    mut profiler,
+                    is_creative: _is_creative,
+                    selected_point: _,
+                },
+            ) => {
+                db.execute_batch("BEGIN TRANSACTION")?;
+                let mut turn = profiler.start();
+                system::apply_ai(db)?;
+                turn.split("ai");
+                system::move_actors(db)?;
+                turn.split("movement");
+                component::player::pass_time(db, 1)?;
+                turn.split("time");
+                system::apply_regen(db)?;
+                turn.split("regen");
+                for _ in 0..25 {
+                    game_object::generate_particles(db, 25)?;
                 }
-                NewGame { is_creative } => {
-                    self.mode = Box::new(new_game(
-                        self.rng,
-                        meta::SAVE_FILE_NAME,
-                        is_creative,
-                        if is_creative {
-                            Box::new(map_gen::EmptyGenerator)
-                        } else {
-                            Box::new(map_gen::DefaultGenerator::new())
-                        },
-                    )?);
-                    self.renderer.mark_dirty();
+                turn.split("particles");
+                for _ in 0..5 {
+                    game_object::generate_enemies(db, 10)?;
                 }
-                LoadGame => {
-                    self.mode = Box::new(load_game(self.rng, meta::SAVE_FILE_NAME)?);
-                    self.renderer.mark_dirty();
-                }
-                Back => {
-                    self.console.quit(ctx);
-                }
-                event => {
-                    println!("Unhandled event type: {:?}", event);
-                }
-            },
-            InGame {
-                ref db,
-                player: _,
-                mut profiler,
-                is_creative: _is_creative,
-                selected_point: _,
-            } => match event {
-                None => {}
-                WinGame => {
-                    self.mode = Box::new(WonGame);
-                    self.renderer.mark_dirty();
-                }
-                PassTime => {
-                    db.execute_batch("BEGIN TRANSACTION")?;
-                    let mut turn = profiler.start();
-                    system::apply_ai(db)?;
-                    turn.split("ai");
-                    system::move_actors(db)?;
-                    turn.split("movement");
-                    component::player::pass_time(db, 1)?;
-                    turn.split("time");
-                    system::apply_regen(db)?;
-                    turn.split("regen");
-                    for _ in 0..25 {
-                        game_object::generate_particles(db, 25)?;
-                    }
-                    turn.split("particles");
-                    for _ in 0..5 {
-                        game_object::generate_enemies(db, 10)?;
-                    }
-                    turn.split("enemies");
-                    system::cull_dead(db)?;
-                    system::cull_ephemeral(db)?;
-                    turn.split("culling");
-                    let turn_num = component::player::turns_passed(db)?;
+                turn.split("enemies");
+                system::cull_dead(db)?;
+                system::cull_ephemeral(db)?;
+                turn.split("culling");
+                let turn_num = component::player::turns_passed(db)?;
 
-                    let actor_count = component::actor::count(db)?;
-                    db.execute_batch("COMMIT TRANSACTION")?;
+                let actor_count = component::actor::count(db)?;
+                db.execute_batch("COMMIT TRANSACTION")?;
 
-                    profiler.end(db, turn_num, turn, actor_count)?;
-                    self.renderer.mark_dirty();
-                }
-                _ => {
-                    println!("Unexpected event in main game event handler: {:?}", event);
-                }
-            },
-            WonGame => match event {
-                None => {}
-                ReturnToMainMenu => {
-                    *self.mode = MainMenu(meta::main_menu());
-                    self.renderer.mark_dirty();
-                }
-                _ => {
-                    println!("Unexpected event in won game state")
-                }
-            },
+                profiler.end(db, turn_num, turn, actor_count)?;
+                self.renderer.mark_dirty();
+            }
+            (ReturnToMainMenu, _) => {
+                *self.mode = MainMenu(meta::main_menu());
+                self.renderer.mark_dirty();
+            }
+            (event, mode) => {
+                println!("Unhandled event {:?} in mode {:?}", event, mode);
+            }
         }
         anyhow::Result::Ok(())
     }
