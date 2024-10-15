@@ -83,7 +83,7 @@ fn new_game<P: AsRef<Path>>(
     rng: &'static Mutex<meta::GameRng>,
     path: P,
     is_creative: bool,
-    mut dungeon_generator: impl map_gen::Generator,
+    mut dungeon_generator: Box<dyn map_gen::Generator>,
 ) -> anyhow::Result<meta::GameMode> {
     std::fs::remove_file(&path)?;
     let db = open_db(path, rng)?;
@@ -211,7 +211,11 @@ impl State {
                         self.rng,
                         meta::SAVE_FILE_NAME,
                         is_creative,
-                        map_gen::DefaultGenerator::new(),
+                        if is_creative {
+                            Box::new(map_gen::EmptyGenerator)
+                        } else {
+                            Box::new(map_gen::DefaultGenerator::new())
+                        },
                     )?);
                     self.renderer.mark_dirty();
                 }
