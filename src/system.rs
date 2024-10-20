@@ -125,7 +125,7 @@ pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<game_objec
     let result = query
         .query_map((), |row| {
             let entity: entity::Entity = row.get("entity")?;
-            let tile: String = row.get("tile")?;
+            let icon: String = row.get("icon")?;
             let x: i64 = row.get("x")?;
             let y: i64 = row.get("y")?;
             let r: u8 = row.get("r")?;
@@ -135,7 +135,7 @@ pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<game_objec
             Ok(game_object::Object {
                 tile: component::tile::Tile {
                     entity,
-                    tile,
+                    icon,
                     color: game_object::Color { r, g, b },
                     plane,
                 },

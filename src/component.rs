@@ -144,7 +144,7 @@ pub mod tile {
     #[derive(Debug)]
     pub struct Tile {
         pub entity: entity::Entity,
-        pub tile: String,
+        pub icon: String,
         pub color: game_object::Color,
         pub plane: game_object::Plane,
     }
@@ -154,7 +154,7 @@ pub mod tile {
             "
             CREATE TABLE IF NOT EXISTS Tile (
                 entity INTEGER NOT NULL,
-                tile TEXT,
+                icon TEXT,
                 r INTEGER,
                 g INTEGER,
                 B INTEGER,
@@ -169,18 +169,18 @@ pub mod tile {
 
     pub fn set(db: &rusqlite::Connection, tile: Tile) -> rusqlite::Result<()> {
         db.execute(
-            "INSERT INTO Tile (entity, tile, r, g, b, plane)
-            VALUES (:entity, :tile, :r, :g, :b, :plane)
+            "INSERT INTO Tile (entity, icon, r, g, b, plane)
+            VALUES (:entity, :icon, :r, :g, :b, :plane)
             ON CONFLICT (entity) DO
                 UPDATE SET
-                    tile = excluded.tile,
+                    icon = excluded.icon,
                     r = excluded.r,
                     g = excluded.g,
                     b = excluded.b,
                     plane = excluded.plane",
             named_params![
                 ":entity": tile.entity,
-                ":tile": tile.tile,
+                ":icon": tile.icon,
                 ":r": tile.color.r,
                 ":g": tile.color.g,
                 ":b": tile.color.b,

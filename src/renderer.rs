@@ -67,7 +67,7 @@ impl Renderer {
                 object.pos.into(),
                 object.tile.color,
                 game_object::BACKGROUND_COLOR,
-                &object.tile.tile,
+                &object.tile.icon,
             );
         }
     }

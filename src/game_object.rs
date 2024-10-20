@@ -124,7 +124,7 @@ pub fn init_floor(db: &rusqlite::Connection, pos: WorldPoint) -> rusqlite::Resul
         &db,
         component::tile::Tile {
             entity: panel,
-            tile: ".".into(),
+            icon: ".".into(),
             color: GROUND_COLOR,
             plane: Plane::Ground,
         },
@@ -144,7 +144,7 @@ pub fn init_wall(
         &db,
         component::tile::Tile {
             entity: panel,
-            tile: tile.into(),
+            icon: tile.into(),
             color: WALL_COLOR,
             plane: Plane::Wall,
         },
@@ -160,7 +160,7 @@ pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite:
         &db,
         component::tile::Tile {
             entity,
-            tile: "*".into(),
+            icon: "*".into(),
             color: PARTICLE_COLOR,
             plane: Plane::Particles,
         },
@@ -178,7 +178,7 @@ pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::R
         &db,
         component::tile::Tile {
             entity,
-            tile: "x".into(),
+            icon: "x".into(),
             color: ENEMY_COLOR,
             plane: Plane::Enemies,
         },

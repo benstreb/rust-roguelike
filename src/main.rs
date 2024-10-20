@@ -118,7 +118,7 @@ fn new_game<P: AsRef<Path>>(
                 &db,
                 component::tile::Tile {
                     entity: down_stairs,
-                    tile: ">".into(),
+                    icon: ">".into(),
                     color: game_object::PLAYER_COLOR,
                     plane: game_object::Plane::Objects,
                 },
@@ -132,7 +132,7 @@ fn new_game<P: AsRef<Path>>(
                 &db,
                 component::tile::Tile {
                     entity: player,
-                    tile: "@".into(),
+                    icon: "@".into(),
                     color: game_object::STAIR_COLOR,
                     plane: game_object::Plane::Player,
                 },
