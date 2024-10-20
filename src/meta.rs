@@ -38,6 +38,12 @@ pub enum GameMode {
     WonGame,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ClickTarget {
+    World(game_object::WorldPoint),
+    Other(ConsolePoint),
+}
+
 impl GameMode {
     pub fn input_handler(
         &mut self,
@@ -50,7 +56,7 @@ impl GameMode {
         match self {
             GameMode::MainMenu(menu) => Ok(menu.keydown_handler(keycodes)),
             GameMode::WonGame => {
-                if keycodes.len() > 0 {
+                if keycodes.len() > 0 || clicks.len() > 0 {
                     Ok(GameEvent::ReturnToMainMenu)
                 } else {
                     Ok(GameEvent::None)
@@ -59,7 +65,7 @@ impl GameMode {
             GameMode::InGame { db, player, .. } => {
                 if let Some(console::ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0)
                 {
-                    return Ok(GameEvent::Click(*pos));
+                    return Ok(GameEvent::Click(self.target(*pos)));
                 }
 
                 if component::player::outstanding_turns(db)? > 0 {
@@ -99,6 +105,20 @@ impl GameMode {
             }
         }
     }
+
+    fn target(&self, pos: ConsolePoint) -> ClickTarget {
+        let ConsolePoint { x: min_x, y: min_y } = WORLD_TOP_LEFT;
+        let max_x = min_x + WORLD_WIDTH;
+        let max_y = min_y + WORLD_HEIGHT;
+        if pos.x < min_x || pos.x > max_x || pos.y < min_y || pos.y > max_y {
+            ClickTarget::Other(pos)
+        } else {
+            ClickTarget::World(game_object::WorldPoint {
+                x: pos.x - min_x,
+                y: pos.y - min_y,
+            })
+        }
+    }
 }
 
 #[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
@@ -114,7 +134,7 @@ pub enum GameEvent {
     PassTime,
     WinGame,
     ReturnToMainMenu,
-    Click(ConsolePoint),
+    Click(ClickTarget),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

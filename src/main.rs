@@ -221,8 +221,32 @@ impl State {
                 self.mode = Box::new(WonGame);
                 self.renderer.mark_dirty();
             }
-            (Click(pos), InGame { selected_point, .. }) => {
+            (Click(meta::ClickTarget::Other(pos)), InGame { selected_point, .. }) => {
                 *selected_point = Some(pos);
+                self.renderer.mark_dirty();
+            }
+            (
+                Click(meta::ClickTarget::World(pos)),
+                InGame {
+                    db,
+                    is_creative: true,
+                    selected_point,
+                    ..
+                },
+            ) => {
+                game_object::generate_particles(db, 25)?;
+                *selected_point = Some(pos.into());
+                self.renderer.mark_dirty();
+            }
+            (
+                Click(meta::ClickTarget::World(pos)),
+                InGame {
+                    is_creative: false,
+                    selected_point,
+                    ..
+                },
+            ) => {
+                *selected_point = Some(pos.into());
                 self.renderer.mark_dirty();
             }
             (
