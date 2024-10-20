@@ -113,12 +113,12 @@ fn new_game<P: AsRef<Path>>(
         } else if tile == Tile::DownStairs {
             game_object::init_floor(&db, pos)?;
             let down_stairs = entity::create(&db)?;
-            component::actor::set(
+            component::actor::set(&db, down_stairs, pos)?;
+            component::tile::set(
                 &db,
-                component::actor::Actor {
+                component::tile::Tile {
                     entity: down_stairs,
                     tile: ">".into(),
-                    pos,
                     color: game_object::PLAYER_COLOR,
                     plane: game_object::Plane::Objects,
                 },
@@ -127,12 +127,12 @@ fn new_game<P: AsRef<Path>>(
         } else if tile == Tile::UpStairs {
             game_object::init_floor(&db, pos)?;
             // Player spawns where the up staircase would be
-            component::actor::set(
+            component::actor::set(&db, player, pos)?;
+            component::tile::set(
                 &db,
-                component::actor::Actor {
+                component::tile::Tile {
                     entity: player,
                     tile: "@".into(),
-                    pos,
                     color: game_object::STAIR_COLOR,
                     plane: game_object::Plane::Player,
                 },

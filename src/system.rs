@@ -1,6 +1,6 @@
 use rusqlite::{named_params, OptionalExtension};
 
-use crate::component;
+use crate::{component, entity, game_object};
 
 pub fn move_actors(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     db.execute_batch(
@@ -112,4 +112,36 @@ pub fn cull_ephemeral(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         )",
     )?;
     Ok(())
+}
+
+pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<game_object::Object>> {
+    let mut query = db.prepare(
+        "
+        SELECT *, min(plane)
+        FROM Actor
+        JOIN Tile on Actor.entity = Tile.entity
+        GROUP BY x, y",
+    )?;
+    let result = query
+        .query_map((), |row| {
+            let entity: entity::Entity = row.get("entity")?;
+            let tile: String = row.get("tile")?;
+            let x: i64 = row.get("x")?;
+            let y: i64 = row.get("y")?;
+            let r: u8 = row.get("r")?;
+            let g: u8 = row.get("g")?;
+            let b: u8 = row.get("b")?;
+            let plane: game_object::Plane = row.get("plane")?;
+            Ok(game_object::Object {
+                tile: component::tile::Tile {
+                    entity,
+                    tile,
+                    color: game_object::Color { r, g, b },
+                    plane,
+                },
+                pos: game_object::WorldPoint { x, y },
+            })
+        })?
+        .collect::<rusqlite::Result<Vec<game_object::Object>>>()?;
+    Ok(result)
 }

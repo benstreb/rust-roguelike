@@ -100,6 +100,12 @@ impl FromSql for Plane {
     }
 }
 
+#[derive(Debug)]
+pub struct Object {
+    pub pos: WorldPoint,
+    pub tile: component::tile::Tile,
+}
+
 pub fn init_player(
     db: &rusqlite::Connection,
     is_creative: bool,
@@ -113,12 +119,12 @@ pub fn init_player(
 
 pub fn init_floor(db: &rusqlite::Connection, pos: WorldPoint) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(
-        db,
-        component::actor::Actor {
+    component::actor::set(db, panel, pos)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
             entity: panel,
             tile: ".".into(),
-            pos,
             color: GROUND_COLOR,
             plane: Plane::Ground,
         },
@@ -133,12 +139,12 @@ pub fn init_wall(
     pos: WorldPoint,
 ) -> rusqlite::Result<entity::Entity> {
     let panel = entity::create(db)?;
-    component::actor::set(
-        db,
-        component::actor::Actor {
+    component::actor::set(db, panel, pos)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
             entity: panel,
             tile: tile.into(),
-            pos,
             color: WALL_COLOR,
             plane: Plane::Wall,
         },
@@ -149,12 +155,15 @@ pub fn init_wall(
 
 pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
     let entity = entity::create(db)?;
-    component::actor::set_on_random_empty_ground(
-        db,
-        entity,
-        "*",
-        PARTICLE_COLOR.into(),
-        Plane::Particles,
+    component::actor::set_on_random_empty_ground(db, entity)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
+            entity,
+            tile: "*".into(),
+            color: PARTICLE_COLOR,
+            plane: Plane::Particles,
+        },
     )?;
     component::velocity::set_random(db, entity, -1..=1)?;
     component::health::set(db, entity, lifespan, lifespan, -1)?;
@@ -164,12 +173,15 @@ pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite:
 
 pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
     let entity = entity::create(db).unwrap();
-    component::actor::set_on_random_empty_ground(
-        db,
-        entity,
-        "x",
-        ENEMY_COLOR.into(),
-        Plane::Enemies,
+    component::actor::set_on_random_empty_ground(db, entity)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
+            entity,
+            tile: "x".into(),
+            color: ENEMY_COLOR,
+            plane: Plane::Enemies,
+        },
     )?;
     component::velocity::set(db, entity, 0, 0)?;
     component::health::set(db, entity, lifespan, lifespan, -1)?;

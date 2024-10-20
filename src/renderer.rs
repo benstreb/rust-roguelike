@@ -1,4 +1,4 @@
-use crate::{component, console, game_object, meta};
+use crate::{component, console, game_object, meta, system};
 
 #[derive(Debug, Default)]
 pub struct Renderer {
@@ -29,8 +29,8 @@ impl Renderer {
             meta::GameMode::InGame {
                 db, selected_point, ..
             } => {
-                let visible_actors = component::actor::get_visible(db)?;
-                Self::draw_actors(&visible_actors, console);
+                let visible_objects = system::get_visible(db)?;
+                Self::draw_objects(&visible_objects, console);
                 let turn = component::player::turns_passed(db)?;
                 console.print(console::ConsolePoint { x: 0, y: 0 }, &turn.to_string());
                 if let Some(pos) = selected_point {
@@ -61,13 +61,13 @@ impl Renderer {
         Ok(())
     }
 
-    fn draw_actors(actors: &Vec<component::actor::Actor>, console: &mut console::Console) {
-        for actor in actors {
+    fn draw_objects(objects: &Vec<game_object::Object>, console: &mut console::Console) {
+        for object in objects {
             console.print_color(
-                actor.pos.into(),
-                actor.color,
+                object.pos.into(),
+                object.tile.color,
                 game_object::BACKGROUND_COLOR,
-                &actor.tile,
+                &object.tile.tile,
             );
         }
     }

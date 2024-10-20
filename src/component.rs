@@ -6,6 +6,7 @@ use rusqlite::{named_params, params};
 pub fn create_tables(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     player::create_table(db)?;
     actor::create_table(db)?;
+    tile::create_table(db)?;
     velocity::create_table(db)?;
     ai::create_table(db)?;
     collision::create_table(db)?;
@@ -83,50 +84,34 @@ pub mod player {
 pub mod actor {
     use super::*;
 
-    #[derive(Debug)]
-    pub struct Actor {
-        pub entity: entity::Entity,
-        pub tile: String,
-        pub pos: game_object::WorldPoint,
-        pub color: game_object::Color,
-        pub plane: game_object::Plane,
-    }
-
     pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         db.execute_batch(
             "
             CREATE TABLE IF NOT EXISTS Actor (
                 entity INTEGER NOT NULL,
-                tile TEXT,
                 x INTEGER,
                 y INTEGER,
-                r INTEGER,
-                g INTEGER,
-                B INTEGER,
-                plane INTEGER,
                 FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
             );
             CREATE UNIQUE INDEX IF NOT EXISTS idx_actor_entity ON Actor (entity ASC);
-            CREATE INDEX IF NOT EXISTS idx_actor_plane ON Actor (plane DESC);
             CREATE INDEX IF NOT EXISTS idx_actor_position ON Actor (x ASC, y ASC);
         ",
         )
     }
 
-    pub fn set(db: &rusqlite::Connection, actor: Actor) -> rusqlite::Result<()> {
+    pub fn set(
+        db: &rusqlite::Connection,
+        entity: entity::Entity,
+        pos: game_object::WorldPoint,
+    ) -> rusqlite::Result<()> {
         db.execute(
-            "INSERT INTO Actor (entity, tile, x, y, r, g, b, plane)
-            VALUES (:entity, :tile, :x, :y, :r, :g, :b, :plane)
-            ON CONFLICT (entity) DO UPDATE SET tile = excluded.tile, x = excluded.x, y = excluded.y, plane = excluded.plane",
+            "INSERT INTO Actor (entity, x, y)
+            VALUES (:entity, :x, :y)
+            ON CONFLICT (entity) DO UPDATE SET x = excluded.x, y = excluded.y",
             named_params![
-                ":entity": actor.entity,
-                ":tile": actor.tile,
-                ":x": actor.pos.x,
-                ":y": actor.pos.y,
-                ":r": actor.color.r,
-                ":g": actor.color.g,
-                ":b": actor.color.b,
-                ":plane": actor.plane,
+                ":entity": entity,
+                ":x": pos.x,
+                ":y": pos.y,
             ],
         )?;
         Ok(())
@@ -135,54 +120,74 @@ pub mod actor {
     pub fn set_on_random_empty_ground(
         db: &rusqlite::Connection,
         entity: entity::Entity,
-        tile: &str,
-        color: game_object::Color,
-        plane: game_object::Plane,
     ) -> rusqlite::Result<()> {
         db.prepare_cached(
-            "INSERT INTO Actor (entity, tile, x, y, r, g, b, plane)
-            SELECT :entity, :tile, x, y, :r, :g, :b, :plane
+            "INSERT INTO Actor (entity, x, y)
+            SELECT :entity, x, y
             FROM Actor
             WHERE Actor.entity IN (SELECT entity FROM PassableTiles)
             ORDER BY pcg_random()
-            LIMIT 1"
-        )?.execute(
-            named_params![":entity": entity, ":tile": tile, ":r": color.r, ":g": color.g, ":b": color.b, ":plane": plane],
-        )?;
+            LIMIT 1",
+        )?
+        .execute(named_params![":entity": entity])?;
         Ok(())
-    }
-
-    pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<Actor>> {
-        let mut query = db.prepare(
-            "
-            SELECT *, min(plane)
-            FROM Actor
-            GROUP BY x, y",
-        )?;
-        let result = query
-            .query_map((), |row| {
-                let entity: entity::Entity = row.get("entity")?;
-                let tile: String = row.get("tile")?;
-                let x: i64 = row.get("x")?;
-                let y: i64 = row.get("y")?;
-                let r: u8 = row.get("r")?;
-                let g: u8 = row.get("g")?;
-                let b: u8 = row.get("b")?;
-                let plane: game_object::Plane = row.get("plane")?;
-                Ok(Actor {
-                    entity,
-                    tile,
-                    pos: game_object::WorldPoint { x, y },
-                    color: game_object::Color { r, g, b },
-                    plane,
-                })
-            })?
-            .collect::<rusqlite::Result<Vec<Actor>>>()?;
-        Ok(result)
     }
 
     pub fn count(db: &rusqlite::Connection) -> rusqlite::Result<i64> {
         db.query_row("SELECT COUNT(*) FROM Actor", (), |row| row.get(0))
+    }
+}
+
+pub mod tile {
+    use super::*;
+
+    #[derive(Debug)]
+    pub struct Tile {
+        pub entity: entity::Entity,
+        pub tile: String,
+        pub color: game_object::Color,
+        pub plane: game_object::Plane,
+    }
+
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS Tile (
+                entity INTEGER NOT NULL,
+                tile TEXT,
+                r INTEGER,
+                g INTEGER,
+                B INTEGER,
+                plane INTEGER,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            );
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_tile_entity ON Tile (entity ASC);
+            CREATE INDEX IF NOT EXISTS idx_tile_plane ON Tile (plane DESC);
+        ",
+        )
+    }
+
+    pub fn set(db: &rusqlite::Connection, tile: Tile) -> rusqlite::Result<()> {
+        db.execute(
+            "INSERT INTO Tile (entity, tile, r, g, b, plane)
+            VALUES (:entity, :tile, :r, :g, :b, :plane)
+            ON CONFLICT (entity) DO
+                UPDATE SET
+                    tile = excluded.tile,
+                    r = excluded.r,
+                    g = excluded.g,
+                    b = excluded.b,
+                    plane = excluded.plane",
+            named_params![
+                ":entity": tile.entity,
+                ":tile": tile.tile,
+                ":r": tile.color.r,
+                ":g": tile.color.g,
+                ":b": tile.color.b,
+                ":plane": tile.plane,
+            ],
+        )?;
+        Ok(())
     }
 }
 
