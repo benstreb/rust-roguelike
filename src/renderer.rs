@@ -66,7 +66,7 @@ impl Renderer {
             console.print_color(
                 object.pos.into(),
                 object.tile.color,
-                game_object::BACKGROUND_COLOR,
+                object.bg_color,
                 &object.tile.icon,
             );
         }

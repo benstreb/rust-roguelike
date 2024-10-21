@@ -1,6 +1,7 @@
 use crate::console::{self, ConsolePoint, VirtualKeyCode};
 use crate::profiler::TurnProfiler;
 use crate::{component, entity, game_object, system};
+use ggez::event::MouseButton;
 use rand::SeedableRng;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -63,9 +64,12 @@ impl GameMode {
                 }
             }
             GameMode::InGame { db, player, .. } => {
-                if let Some(console::ClickEvent { pos, click_type: _ }) = clicks.into_iter().nth(0)
+                if let Some(console::ClickEvent {
+                    pos,
+                    click_type: button,
+                }) = clicks.into_iter().nth(0)
                 {
-                    return Ok(GameEvent::Click(self.target(*pos)));
+                    return Ok(GameEvent::Click(self.target(*pos), *button));
                 }
 
                 if component::player::outstanding_turns(db)? > 0 {
@@ -134,7 +138,7 @@ pub enum GameEvent {
     PassTime,
     WinGame,
     ReturnToMainMenu,
-    Click(ClickTarget),
+    Click(ClickTarget, MouseButton),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]

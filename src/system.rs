@@ -117,9 +117,16 @@ pub fn cull_ephemeral(db: &rusqlite::Connection) -> rusqlite::Result<()> {
 pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<game_object::Object>> {
     let mut query = db.prepare(
         "
-        SELECT *, min(plane)
+        SELECT Actor.*, Tile.*, Temp.ground_degrees,  min(plane)
         FROM Actor
         JOIN Tile on Actor.entity = Tile.entity
+        JOIN (
+            SELECT x AS t_x, y AS t_y, degrees AS ground_degrees
+            FROM FloatingTemp
+            JOIN Actor ON FloatingTemp.entity = Actor.entity
+            JOIN Collision ON Actor.entity = Collision.entity
+            WHERE Collision.ground = 1
+        ) AS Temp ON Actor.x = t_x AND Actor.y = t_y
         GROUP BY x, y",
     )?;
     let result = query
@@ -132,6 +139,22 @@ pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<game_objec
             let g: u8 = row.get("g")?;
             let b: u8 = row.get("b")?;
             let plane: game_object::Plane = row.get("plane")?;
+            let ground_degrees: i64 = row.get("ground_degrees")?;
+            let bg_color = if ground_degrees < 70 {
+                game_object::Color {
+                    r: 0,
+                    g: 0,
+                    b: ((70 - ground_degrees) * 10).min(255) as u8,
+                }
+            } else if ground_degrees > 100 {
+                game_object::Color {
+                    r: ((ground_degrees - 100) * 10).min(255) as u8,
+                    g: 0,
+                    b: 0,
+                }
+            } else {
+                game_object::BACKGROUND_COLOR
+            };
             Ok(game_object::Object {
                 tile: component::tile::Tile {
                     entity,
@@ -140,6 +163,7 @@ pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<game_objec
                     plane,
                 },
                 pos: game_object::WorldPoint { x, y },
+                bg_color,
             })
         })?
         .collect::<rusqlite::Result<Vec<game_object::Object>>>()?;
@@ -185,43 +209,39 @@ pub fn realize_spawns(db: &rusqlite::Connection) -> rusqlite::Result<()> {
 pub fn update_temperature(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     db.execute_batch(
         "-- Force floating temperatures to match fixed temperatures for the same entity
-    UPDATE FloatingTemp
-    SET (degrees) = (
-        SELECT degrees
+        UPDATE FloatingTemp
+        SET degrees = FixedTemp.degrees
         FROM FixedTemp
-        WHERE FixedTemp.entity = FloatingTemp.entity
-    )
-    WHERE degrees != NULL;
+        WHERE FixedTemp.entity = FloatingTemp.entity;
 
-    -- Entities in the same space share body temperature
-    UPDATE FloatingTemp
-    SET (degrees) = (
-        SELECT AVG(degrees)
-        FROM FloatingTemp
-        JOIN Actor ON FloatingTemp.entity = Actor.entity
-        GROUP BY x, y
-    );
+        -- Entities in the same space share body temperature
+        UPDATE FloatingTemp
+        SET degrees = average_degrees
+        FROM (
+            SELECT x, y, CAST(AVG(degrees) AS INTEGER) AS average_degrees
+            FROM FloatingTemp
+            JOIN Actor ON FloatingTemp.entity = Actor.entity
+            GROUP BY x, y
+        ) AS TileTemp
+        JOIN Actor ON Actor.x = TileTemp.x AND Actor.y = TileTemp.y
+        WHERE FloatingTemp.entity = Actor.entity;
 
-    -- Ground tiles share temperatures evenly between each other
-    UPDATE FloatingTemp
-    SET (degrees) = (
-        SELECT (FloatingTemp.degrees + 
-            ifnull(North.degrees, 0) +
-            ifnull(South.degrees, 0) +
-            ifnull(East.degrees, 0) +
-            ifnull(West.degrees, 0)) / (1 +
-            ifnull(North.degrees / North.degrees, 0) +
-            ifnull(South.degrees / South.degrees, 0) +
-            ifnull(East.degrees / East.degrees, 0) +
-            ifnull(West.degrees / West.degrees, 0))
-        FROM FloatingTemp
-        JOIN Actor on FloatingTemp.entity = Actor.entity
-        JOIN Collision ON FloatingTemp.entity = Collision.entity
-        LEFT OUTER JOIN HeatMap AS North ON Actor.x = North.x AND Actor.y = North.y - 1
-        LEFT OUTER JOIN HeatMap AS South ON Actor.x = South.x AND Actor.y = South.y + 1
-        LEFT OUTER JOIN HeatMap AS East ON Actor.x = East.x + 1 AND Actor.y = East.y
-        LEFT OUTER JOIN HeatMap AS West ON Actor.x = West.x - 1 AND Actor.y = West.y
-        WHERE Collision.ground = 1
-    );",
+        -- Ground tiles share temperatures evenly between each other
+        -- This query requires that all exterior tiles have fixed temperatures,
+        -- since they will get skipped.
+        UPDATE FloatingTemp
+        SET degrees = CAST((FloatingTemp.degrees +
+            North.degrees +
+            South.degrees +
+            East.degrees
+            + West.degrees) / 5 AS INTEGER)
+        FROM Actor
+        JOIN Collision ON Actor.entity = Collision.entity
+        JOIN HeatMap AS North ON Actor.x = North.x AND Actor.y = North.y - 1
+        JOIN HeatMap AS South ON Actor.x = South.x AND Actor.y = South.y + 1
+        JOIN HeatMap AS East ON Actor.x = East.x + 1 AND Actor.y = East.y
+        JOIN HeatMap AS West ON Actor.x = West.x - 1 AND Actor.y = West.y
+        WHERE FloatingTemp.entity = Actor.entity AND Collision.ground = 1;
+        ",
     )
 }

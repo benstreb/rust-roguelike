@@ -454,8 +454,7 @@ pub mod temperature {
             JOIN Actor ON Actor.entity = FloatingTemp.entity
             JOIN Collision ON FloatingTemp.entity = Collision.entity
             WHERE Collision.ground = 1
-            GROUP BY x, y
-            LIMIT 1;
+            GROUP BY x, y;
             ",
         )
     }

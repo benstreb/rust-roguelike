@@ -202,12 +202,12 @@ impl State {
                 self.mode = Box::new(WonGame);
                 self.renderer.mark_dirty();
             }
-            (Click(meta::ClickTarget::Other(pos)), InGame { selected_point, .. }) => {
+            (Click(meta::ClickTarget::Other(pos), _), InGame { selected_point, .. }) => {
                 *selected_point = Some(pos);
                 self.renderer.mark_dirty();
             }
             (
-                Click(meta::ClickTarget::World(pos)),
+                Click(meta::ClickTarget::World(pos), button),
                 InGame {
                     db,
                     is_creative: true,
@@ -215,13 +215,18 @@ impl State {
                     ..
                 },
             ) => {
+                if button == console::ClickType::Right {
+                    game_object::generate_ice(db, 10, SpawnAttempt::Exact(pos))?;
+                } else {
+                    game_object::generate_fire(db, 10, SpawnAttempt::Exact(pos))?;
+                };
                 game_object::generate_particles(db, 25, SpawnAttempt::Exact(pos))?;
                 system::realize_spawns(db)?;
                 *selected_point = Some(pos.into());
                 self.renderer.mark_dirty();
             }
             (
-                Click(meta::ClickTarget::World(pos)),
+                Click(meta::ClickTarget::World(pos), _),
                 InGame {
                     is_creative: false,
                     selected_point,

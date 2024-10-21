@@ -107,6 +107,7 @@ impl FromSql for Plane {
 pub struct Object {
     pub pos: WorldPoint,
     pub tile: component::tile::Tile,
+    pub bg_color: Color,
 }
 
 pub fn init_player(
@@ -224,6 +225,51 @@ pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::R
     component::collision::set(db, entity, false, true, false)?;
     component::ai::set_random(db, entity)?;
     component::temperature::set_floating(db, entity, 94)?;
+    component::temperature::set_heat_source(db, entity, 1)?;
+    Ok(())
+}
+
+pub fn generate_fire(
+    db: &rusqlite::Connection,
+    lifespan: i64,
+    attempt: SpawnAttempt,
+) -> rusqlite::Result<()> {
+    let entity = entity::create(db)?;
+    component::spawn_attempt::create(db, entity, attempt)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
+            entity,
+            icon: "^".into(),
+            color: PARTICLE_COLOR,
+            plane: Plane::Particles,
+        },
+    )?;
+    component::health::set(db, entity, lifespan, lifespan, -1)?;
+    component::collision::set(db, entity, false, false, true)?;
+    component::temperature::set_fixed(db, entity, 800)?;
+    Ok(())
+}
+
+pub fn generate_ice(
+    db: &rusqlite::Connection,
+    lifespan: i64,
+    attempt: SpawnAttempt,
+) -> rusqlite::Result<()> {
+    let entity = entity::create(db)?;
+    component::spawn_attempt::create(db, entity, attempt)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
+            entity,
+            icon: "=".into(),
+            color: PARTICLE_COLOR,
+            plane: Plane::Particles,
+        },
+    )?;
+    component::health::set(db, entity, lifespan, lifespan, -1)?;
+    component::collision::set(db, entity, false, false, true)?;
+    component::temperature::set_fixed(db, entity, 0)?;
     component::temperature::set_heat_source(db, entity, 1)?;
     Ok(())
 }
