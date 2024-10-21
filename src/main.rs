@@ -9,6 +9,7 @@ mod renderer;
 mod system;
 
 use crate::console::Console;
+use component::spawn_attempt::SpawnAttempt;
 use ggez::{conf::WindowMode, ContextBuilder, GameResult};
 use map_gen::Tile;
 use profiler::TurnProfiler;
@@ -234,7 +235,8 @@ impl State {
                     ..
                 },
             ) => {
-                game_object::generate_particles(db, 25)?;
+                game_object::generate_particles(db, 25, SpawnAttempt::Exact(pos))?;
+                system::realize_spawns(db)?;
                 *selected_point = Some(pos.into());
                 self.renderer.mark_dirty();
             }
@@ -270,11 +272,12 @@ impl State {
                 system::apply_regen(db)?;
                 turn.split("regen");
                 for _ in 0..25 {
-                    game_object::generate_particles(db, 25)?;
+                    game_object::generate_particles(db, 25, SpawnAttempt::AnyUnoccupied)?;
                 }
                 for _ in 0..5 {
                     game_object::generate_enemies(db, 10)?;
                 }
+                system::realize_spawns(db)?;
                 turn.split("spawns");
                 system::cull_dead(db)?;
                 system::cull_ephemeral(db)?;

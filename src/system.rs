@@ -145,3 +145,39 @@ pub fn get_visible(db: &rusqlite::Connection) -> rusqlite::Result<Vec<game_objec
         .collect::<rusqlite::Result<Vec<game_object::Object>>>()?;
     Ok(result)
 }
+
+pub fn realize_spawns(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "-- Spawns with exact locations
+        INSERT INTO Actor
+        SELECT entity, x, y
+        FROM SpawnAttempt
+        WHERE spawn_rule = 0 -- SpawnRule::Exact
+        ON CONFLICT (entity) DO UPDATE SET x = excluded.x, y = excluded.y;
+
+        -- Random spawns
+        INSERT INTO Actor (entity, x, y)
+        SELECT entity, x, y
+        FROM (
+            SELECT
+                entity,
+                row_number() OVER (ORDER BY rowid) AS row_number
+            FROM SpawnAttempt
+            WHERE SpawnAttempt.spawn_rule = 1) AS Attempt
+        JOIN (
+            SELECT
+                x,
+                y,
+                row_number() OVER (ORDER BY pcg_random()) AS row_number
+            FROM PassableTiles
+        ) AS Candidates ON Candidates.row_number = Attempt.row_number
+        ON CONFLICT (entity) DO UPDATE SET x = excluded.x, y = excluded.y;
+
+        -- Delete actors that didn't spawn
+        -- TODO: implement when there's a meaningful chance of spawns failing.
+
+        -- Spawn attempts only have one chance to resolve.
+        DELETE FROM SpawnAttempt;
+        ",
+    )
+}

@@ -13,6 +13,7 @@ pub fn create_tables(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     collision::create_passable_tiles_view(db)?;
     health::create_table(db)?;
     transition::create_table(db)?;
+    spawn_attempt::create_table(db)?;
     Ok(())
 }
 
@@ -114,22 +115,6 @@ pub mod actor {
                 ":y": pos.y,
             ],
         )?;
-        Ok(())
-    }
-
-    pub fn set_on_random_empty_ground(
-        db: &rusqlite::Connection,
-        entity: entity::Entity,
-    ) -> rusqlite::Result<()> {
-        db.prepare_cached(
-            "INSERT INTO Actor (entity, x, y)
-            SELECT :entity, x, y
-            FROM Actor
-            WHERE Actor.entity IN (SELECT entity FROM PassableTiles)
-            ORDER BY pcg_random()
-            LIMIT 1",
-        )?
-        .execute(named_params![":entity": entity])?;
         Ok(())
     }
 
@@ -379,6 +364,60 @@ pub mod transition {
             VALUES (?, ?)
             ON CONFLICT (entity) DO UPDATE SET level = excluded.level",
             params![entity, level],
+        )?;
+        Ok(())
+    }
+}
+
+pub mod spawn_attempt {
+    use super::*;
+
+    #[derive(Clone, Copy, Debug)]
+    pub enum SpawnAttempt {
+        Exact(game_object::WorldPoint),
+        AnyUnoccupied,
+    }
+
+    #[derive(Clone, Copy, Debug, num_enum::TryFromPrimitive)]
+    #[repr(i64)]
+    enum SpawnRule {
+        Exact = 0,
+        AnyUnoccupied = 1,
+    }
+
+    impl rusqlite::types::ToSql for SpawnRule {
+        fn to_sql(&self) -> rusqlite::Result<rusqlite::types::ToSqlOutput> {
+            Ok((*self as i64).into())
+        }
+    }
+
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS SpawnAttempt (
+                entity INTEGER UNIQUE NOT NULL,
+                spawn_rule INTEGER NOT NULL,
+                x INTEGER,
+                y INTEGER,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            )",
+        )
+    }
+
+    pub fn create(
+        db: &rusqlite::Connection,
+        entity: entity::Entity,
+        attempt: SpawnAttempt,
+    ) -> rusqlite::Result<()> {
+        let (rule, x, y) = match attempt {
+            SpawnAttempt::Exact(pos) => (SpawnRule::Exact, Some(pos.x), Some(pos.y)),
+            SpawnAttempt::AnyUnoccupied => (SpawnRule::AnyUnoccupied, None, None),
+        };
+
+        db.execute(
+            "INSERT INTO SpawnAttempt (entity, spawn_rule, x, y)
+            VALUES (:entity, :spawn_rule, :x, :y)",
+            named_params! {":entity": entity, ":spawn_rule": rule, ":x": x, ":y": y},
         )?;
         Ok(())
     }

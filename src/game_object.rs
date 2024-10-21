@@ -1,4 +1,7 @@
-use crate::{component, entity};
+use crate::{
+    component::{self, spawn_attempt::SpawnAttempt},
+    entity,
+};
 use rusqlite::types::{FromSql, FromSqlError, FromSqlResult, ToSql, ToSqlOutput, ValueRef};
 
 pub const WIN_LEVEL: &str = "win";
@@ -153,9 +156,13 @@ pub fn init_wall(
     Ok(panel)
 }
 
-pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
+pub fn generate_particles(
+    db: &rusqlite::Connection,
+    lifespan: i64,
+    attempt: SpawnAttempt,
+) -> rusqlite::Result<()> {
     let entity = entity::create(db)?;
-    component::actor::set_on_random_empty_ground(db, entity)?;
+    component::spawn_attempt::create(db, entity, attempt)?;
     component::tile::set(
         &db,
         component::tile::Tile {
@@ -173,7 +180,7 @@ pub fn generate_particles(db: &rusqlite::Connection, lifespan: i64) -> rusqlite:
 
 pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::Result<()> {
     let entity = entity::create(db).unwrap();
-    component::actor::set_on_random_empty_ground(db, entity)?;
+    component::spawn_attempt::create(db, entity, SpawnAttempt::AnyUnoccupied)?;
     component::tile::set(
         &db,
         component::tile::Tile {
