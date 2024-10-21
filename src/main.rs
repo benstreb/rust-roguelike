@@ -272,11 +272,10 @@ impl State {
                 for _ in 0..25 {
                     game_object::generate_particles(db, 25)?;
                 }
-                turn.split("particles");
                 for _ in 0..5 {
                     game_object::generate_enemies(db, 10)?;
                 }
-                turn.split("enemies");
+                turn.split("spawns");
                 system::cull_dead(db)?;
                 system::cull_ephemeral(db)?;
                 turn.split("culling");
