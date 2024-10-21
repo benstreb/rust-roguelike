@@ -114,6 +114,15 @@ pub fn init_player(
     is_creative: bool,
 ) -> rusqlite::Result<entity::Entity> {
     let player = entity::create(db)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
+            entity: player,
+            icon: "@".into(),
+            color: STAIR_COLOR,
+            plane: Plane::Player,
+        },
+    )?;
     component::player::set(db, player, is_creative)?;
     component::velocity::set(db, player, 0, 0)?;
     component::collision::set(db, player, false, true, false)?;
@@ -154,6 +163,22 @@ pub fn init_wall(
     )?;
     component::collision::set(db, panel, true, true, false)?;
     Ok(panel)
+}
+
+pub fn init_downstairs(db: &rusqlite::Connection, pos: WorldPoint) -> rusqlite::Result<()> {
+    let down_stairs = entity::create(&db)?;
+    component::actor::set(&db, down_stairs, pos)?;
+    component::tile::set(
+        &db,
+        component::tile::Tile {
+            entity: down_stairs,
+            icon: ">".into(),
+            color: PLAYER_COLOR,
+            plane: Plane::Objects,
+        },
+    )?;
+    component::transition::set(&db, down_stairs, WIN_LEVEL)?;
+    Ok(())
 }
 
 pub fn generate_particles(

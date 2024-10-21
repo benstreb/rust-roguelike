@@ -113,31 +113,11 @@ fn new_game<P: AsRef<Path>>(
             game_object::init_floor(&db, pos)?; // doors aren't supported at this time
         } else if tile == Tile::DownStairs {
             game_object::init_floor(&db, pos)?;
-            let down_stairs = entity::create(&db)?;
-            component::actor::set(&db, down_stairs, pos)?;
-            component::tile::set(
-                &db,
-                component::tile::Tile {
-                    entity: down_stairs,
-                    icon: ">".into(),
-                    color: game_object::PLAYER_COLOR,
-                    plane: game_object::Plane::Objects,
-                },
-            )?;
-            component::transition::set(&db, down_stairs, game_object::WIN_LEVEL)?;
+            game_object::init_downstairs(&db, pos)?;
         } else if tile == Tile::UpStairs {
             game_object::init_floor(&db, pos)?;
             // Player spawns where the up staircase would be
             component::actor::set(&db, player, pos)?;
-            component::tile::set(
-                &db,
-                component::tile::Tile {
-                    entity: player,
-                    icon: "@".into(),
-                    color: game_object::STAIR_COLOR,
-                    plane: game_object::Plane::Player,
-                },
-            )?;
         }
     }
     db.execute_batch("COMMIT TRANSACTION")?;
