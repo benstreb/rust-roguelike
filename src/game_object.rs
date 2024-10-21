@@ -126,6 +126,8 @@ pub fn init_player(
     component::player::set(db, player, is_creative)?;
     component::velocity::set(db, player, 0, 0)?;
     component::collision::set(db, player, false, true, false)?;
+    component::temperature::set_floating(db, player, 36)?;
+    component::temperature::set_heat_source(db, player, 1)?;
     Ok(player)
 }
 
@@ -142,6 +144,7 @@ pub fn init_floor(db: &rusqlite::Connection, pos: WorldPoint) -> rusqlite::Resul
         },
     )?;
     component::collision::set(db, panel, true, false, false)?;
+    component::temperature::set_floating(db, panel, 24)?;
     Ok(panel)
 }
 
@@ -162,6 +165,7 @@ pub fn init_wall(
         },
     )?;
     component::collision::set(db, panel, true, true, false)?;
+    component::temperature::set_fixed(db, panel, 24)?;
     Ok(panel)
 }
 
@@ -219,5 +223,7 @@ pub fn generate_enemies(db: &rusqlite::Connection, lifespan: i64) -> rusqlite::R
     component::health::set(db, entity, lifespan, lifespan, -1)?;
     component::collision::set(db, entity, false, true, false)?;
     component::ai::set_random(db, entity)?;
+    component::temperature::set_floating(db, entity, 94)?;
+    component::temperature::set_heat_source(db, entity, 1)?;
     Ok(())
 }

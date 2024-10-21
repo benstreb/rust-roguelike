@@ -249,6 +249,8 @@ impl State {
                 turn.split("movement");
                 component::player::pass_time(db, 1)?;
                 turn.split("time");
+                system::update_temperature(db)?;
+                turn.split("temperature");
                 system::apply_regen(db)?;
                 turn.split("regen");
                 for _ in 0..25 {

@@ -181,3 +181,47 @@ pub fn realize_spawns(db: &rusqlite::Connection) -> rusqlite::Result<()> {
         ",
     )
 }
+
+pub fn update_temperature(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+    db.execute_batch(
+        "-- Force floating temperatures to match fixed temperatures for the same entity
+    UPDATE FloatingTemp
+    SET (degrees) = (
+        SELECT degrees
+        FROM FixedTemp
+        WHERE FixedTemp.entity = FloatingTemp.entity
+    )
+    WHERE degrees != NULL;
+
+    -- Entities in the same space share body temperature
+    UPDATE FloatingTemp
+    SET (degrees) = (
+        SELECT AVG(degrees)
+        FROM FloatingTemp
+        JOIN Actor ON FloatingTemp.entity = Actor.entity
+        GROUP BY x, y
+    );
+
+    -- Ground tiles share temperatures evenly between each other
+    UPDATE FloatingTemp
+    SET (degrees) = (
+        SELECT (FloatingTemp.degrees + 
+            ifnull(North.degrees, 0) +
+            ifnull(South.degrees, 0) +
+            ifnull(East.degrees, 0) +
+            ifnull(West.degrees, 0)) / (1 +
+            ifnull(North.degrees / North.degrees, 0) +
+            ifnull(South.degrees / South.degrees, 0) +
+            ifnull(East.degrees / East.degrees, 0) +
+            ifnull(West.degrees / West.degrees, 0))
+        FROM FloatingTemp
+        JOIN Actor on FloatingTemp.entity = Actor.entity
+        JOIN Collision ON FloatingTemp.entity = Collision.entity
+        LEFT OUTER JOIN HeatMap AS North ON Actor.x = North.x AND Actor.y = North.y - 1
+        LEFT OUTER JOIN HeatMap AS South ON Actor.x = South.x AND Actor.y = South.y + 1
+        LEFT OUTER JOIN HeatMap AS East ON Actor.x = East.x + 1 AND Actor.y = East.y
+        LEFT OUTER JOIN HeatMap AS West ON Actor.x = West.x - 1 AND Actor.y = West.y
+        WHERE Collision.ground = 1
+    );",
+    )
+}

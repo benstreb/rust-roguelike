@@ -14,6 +14,7 @@ pub fn create_tables(db: &rusqlite::Connection) -> rusqlite::Result<()> {
     health::create_table(db)?;
     transition::create_table(db)?;
     spawn_attempt::create_table(db)?;
+    temperature::create_table(db)?;
     Ok(())
 }
 
@@ -418,6 +419,85 @@ pub mod spawn_attempt {
             "INSERT INTO SpawnAttempt (entity, spawn_rule, x, y)
             VALUES (:entity, :spawn_rule, :x, :y)",
             named_params! {":entity": entity, ":spawn_rule": rule, ":x": x, ":y": y},
+        )?;
+        Ok(())
+    }
+}
+
+pub mod temperature {
+    use super::*;
+
+    pub fn create_table(db: &rusqlite::Connection) -> rusqlite::Result<()> {
+        db.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS FloatingTemp (
+                entity INTEGER UNIQUE NOT NULL,
+                degrees INTEGER NOT NULL,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            );
+            
+            CREATE TABLE IF NOT EXISTS FixedTemp (
+                entity INTEGER UNIQUE NOT NULL,
+                degrees INTEGER NOT NULL,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            );
+
+            CREATE TABLE IF NOT EXISTS HeatSource (
+                entity INTEGER UNIQUE NOT NULL,
+                heat_gen INTEGER NOT NULL,
+                FOREIGN KEY (entity) REFERENCES Entity (id) ON DELETE CASCADE
+            );
+
+            CREATE VIEW IF NOT EXISTS HeatMap AS
+            SELECT Actor.x, Actor.y, FloatingTemp.degrees
+            FROM FloatingTemp
+            JOIN Actor ON Actor.entity = FloatingTemp.entity
+            JOIN Collision ON FloatingTemp.entity = Collision.entity
+            WHERE Collision.ground = 1
+            GROUP BY x, y
+            LIMIT 1;
+            ",
+        )
+    }
+
+    pub fn set_floating(
+        db: &rusqlite::Connection,
+        entity: entity::Entity,
+        degrees: i64,
+    ) -> rusqlite::Result<()> {
+        db.execute(
+            "INSERT INTO FloatingTemp (entity, degrees)
+            VALUES (:entity, :degrees)
+            ON CONFLICT (entity) DO UPDATE SET degrees = excluded.degrees",
+            named_params! {":entity": entity, ":degrees": degrees},
+        )?;
+        Ok(())
+    }
+    pub fn set_fixed(
+        db: &rusqlite::Connection,
+        entity: entity::Entity,
+        degrees: i64,
+    ) -> rusqlite::Result<()> {
+        set_floating(db, entity, degrees)?;
+        db.execute(
+            "INSERT INTO FixedTemp (entity, degrees)
+            VALUES (:entity, :degrees)
+            ON CONFLICT (entity) DO UPDATE SET degrees = excluded.degrees",
+            named_params! {":entity": entity, ":degrees": degrees},
+        )?;
+        Ok(())
+    }
+
+    pub fn set_heat_source(
+        db: &rusqlite::Connection,
+        entity: entity::Entity,
+        heat_gen: i64,
+    ) -> rusqlite::Result<()> {
+        db.execute(
+            "INSERT INTO HeatSource (entity, heat_gen)
+            VALUES (:entity, :heat_gen)
+            ON CONFLICT (entity) DO UPDATE SET heat_gen = excluded.heat_gen",
+            named_params! {":entity": entity, ":heat_gen": heat_gen},
         )?;
         Ok(())
     }
