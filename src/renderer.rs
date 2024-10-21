@@ -74,7 +74,7 @@ impl Renderer {
 
     fn draw_menu(menu: &meta::Menu, console: &mut console::Console) {
         for (i, item) in menu.items.iter().enumerate() {
-            let color: game_object::MenuColor;
+            let color: game_object::ColorPair;
             if i == menu.selected {
                 color = game_object::MENU_COLOR_SELECTED;
             } else {

@@ -65,17 +65,17 @@ pub const STAIR_COLOR: Color = Color::from_u8s((255, 255, 255));
 pub const BACKGROUND_COLOR: Color = Color::from_u8s((0, 0, 0));
 
 #[derive(Debug)]
-pub struct MenuColor {
+pub struct ColorPair {
     pub fg: Color,
     pub bg: Color,
 }
 
-pub const MENU_COLOR_UNSELECTED: MenuColor = MenuColor {
+pub const MENU_COLOR_UNSELECTED: ColorPair = ColorPair {
     fg: Color::from_u8s((255, 255, 255)),
     bg: Color::from_u8s((0, 0, 0)),
 };
 
-pub const MENU_COLOR_SELECTED: MenuColor = MenuColor {
+pub const MENU_COLOR_SELECTED: ColorPair = ColorPair {
     fg: Color::from_u8s((0, 0, 0)),
     bg: Color::from_u8s((255, 255, 255)),
 };
